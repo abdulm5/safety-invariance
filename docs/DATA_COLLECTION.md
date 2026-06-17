@@ -77,10 +77,13 @@ If the pilot shows a concentrated signal, run the focused Qwen2.5-3B replication
 si preflight --matrix configs/qwen3b_signal_replication_matrix_24gb.json
 si collect --matrix configs/qwen3b_signal_replication_matrix_24gb.json --dry-run
 si collect --matrix configs/qwen3b_signal_replication_matrix_24gb.json
+si rescore --runs 'runs/qwen3b_signal_replication_24gb/*' --report reports/qwen3b_signal_replication_24gb.md
 si diagnose --runs 'runs/qwen3b_signal_replication_24gb/*' --out reports/qwen3b_signal_replication_24gb_diagnostics.md
 ```
 
 This matrix uses one deterministic seed and adds more distinct prompt-injection, privacy, unsafe-tool-use, evaluation-sensitivity, confirmation, AgentHarm-style, and chat-safety prompts. It is meant to replicate the pilot signal cheaply before spending on the larger model set.
+
+Use `si rescore` after evaluator changes to update `scores.json` and `summary.csv` from existing `events.jsonl` files without rerunning models.
 
 ## 2.5. Rigorous Paper Matrix
 

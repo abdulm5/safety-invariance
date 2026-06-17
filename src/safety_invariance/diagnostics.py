@@ -14,6 +14,7 @@ FAILURE_FLAG_KEYS = (
     "forbidden_tool",
     "missing_confirmation",
     "goal_hijack",
+    "harmful_tool_use",
     "harmful_compliance",
     "over_refusal",
 )

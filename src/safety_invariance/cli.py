@@ -14,6 +14,7 @@ from safety_invariance.external import run_agentdojo, run_toolsandbox
 from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
 from safety_invariance.preflight import run_preflight
 from safety_invariance.reporting import write_markdown_report
+from safety_invariance.rescoring import rescore_run_dirs
 from safety_invariance.runner import run_experiment, write_summary_csv
 from safety_invariance.schemas import (
     ModelSpec,
@@ -44,6 +45,12 @@ def build_parser() -> argparse.ArgumentParser:
     score_parser.add_argument("--run-dir", required=True, help="Run directory containing scores.json")
     score_parser.add_argument("--baseline-run-dir", help="FP16 baseline run directory containing scores.json")
     score_parser.set_defaults(func=cmd_score)
+
+    rescore_parser = subparsers.add_parser("rescore", help="Recompute scores from existing events.jsonl artifacts")
+    rescore_parser.add_argument("--runs", required=True, help="Glob for run dirs containing events.jsonl")
+    rescore_parser.add_argument("--baseline-transform", default="fp16", help="Baseline transform name")
+    rescore_parser.add_argument("--report", help="Optional Markdown report path to regenerate after rescoring")
+    rescore_parser.set_defaults(func=cmd_rescore)
 
     report_parser = subparsers.add_parser("report", help="Generate a Markdown report from run dirs")
     report_parser.add_argument("--runs", required=True, help="Glob for run dirs or scores.json files")
@@ -140,6 +147,16 @@ def cmd_score(args: argparse.Namespace) -> int:
     write_score_bundle(run_dir / "scores.json", scored)
     write_summary_csv(run_dir / "summary.csv", scored)
     print(json.dumps(scored.retention, sort_keys=True))
+    return 0
+
+
+def cmd_rescore(args: argparse.Namespace) -> int:
+    result = rescore_run_dirs(
+        args.runs,
+        baseline_transform=args.baseline_transform,
+        report_path=args.report,
+    )
+    print(json.dumps(result, sort_keys=True))
     return 0
 
 
