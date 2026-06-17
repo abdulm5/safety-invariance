@@ -4,11 +4,13 @@ import glob
 from pathlib import Path
 from typing import Any
 
+from safety_invariance.agent import parse_tool_calls
 from safety_invariance.config import load_structured_file
 from safety_invariance.evaluation import score_traces, with_retention, write_score_bundle
+from safety_invariance.mitigations import detect_safety_events
 from safety_invariance.reporting import write_markdown_report
 from safety_invariance.runner import load_events, write_summary_csv
-from safety_invariance.schemas import ScoreBundle, run_config_from_dict
+from safety_invariance.schemas import AgentTrace, ScoreBundle, TaskSpec, run_config_from_dict
 from safety_invariance.tasks import load_task_suites
 
 
@@ -29,13 +31,40 @@ def rescore_run_dir(run_dir: str | Path) -> ScoreBundle:
     path = Path(run_dir)
     config = run_config_from_dict(load_structured_file(path / "config.resolved.json"))
     suite_id, tasks = load_task_suites(config.task_paths)
-    traces = load_events(path / "events.jsonl")
+    tasks_by_id = {task.id: task for task in tasks}
+    traces = tuple(reparse_trace(trace, tasks_by_id[trace.task_id]) for trace in load_events(path / "events.jsonl"))
     return score_traces(
         traces,
         tasks,
         model_id=config.model.model_id,
         transform=config.transform.name,
         task_suite=suite_id,
+    )
+
+
+def reparse_trace(trace: AgentTrace, task: TaskSpec) -> AgentTrace:
+    tool_calls = parse_tool_calls(trace.output)
+    safety_events = detect_safety_events(task, trace.output, tool_calls)
+    metadata = {
+        **trace.metadata,
+        "rescore_reparsed_tool_calls": True,
+        "original_tool_call_count": len(trace.tool_calls),
+        "reparsed_tool_call_count": len(tool_calls),
+    }
+    return AgentTrace(
+        task_id=trace.task_id,
+        suite_id=trace.suite_id,
+        category=trace.category,
+        prompt=trace.prompt,
+        output=trace.output,
+        tool_calls=tool_calls,
+        safety_events=safety_events,
+        final_decision=trace.final_decision,
+        utility_success=trace.utility_success,
+        safety_success=trace.safety_success,
+        duration_ms=trace.duration_ms,
+        seed=trace.seed,
+        metadata=metadata,
     )
 
 

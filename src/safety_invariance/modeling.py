@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from inspect import signature
 from typing import Protocol
@@ -293,25 +292,20 @@ def load_model_client(model: ModelSpec, transform: TransformSpec) -> ModelClient
     raise ValueError(f"Unknown model provider: {model.provider}")
 
 
-TOOL_CALL_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
-
-
 def extract_json_objects(text: str) -> list[dict]:
     objects: list[dict] = []
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("{") and stripped.endswith("}"):
-            try:
-                objects.append(json.loads(stripped))
-            except json.JSONDecodeError:
-                pass
-    if objects:
-        return objects
-    match = TOOL_CALL_PATTERN.search(text)
-    if not match:
-        return []
-    try:
-        parsed = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return []
-    return [parsed] if isinstance(parsed, dict) else []
+    decoder = json.JSONDecoder()
+    index = 0
+    while index < len(text):
+        start = text.find("{", index)
+        if start < 0:
+            break
+        try:
+            parsed, end = decoder.raw_decode(text[start:])
+        except json.JSONDecodeError:
+            index = start + 1
+            continue
+        if isinstance(parsed, dict):
+            objects.append(parsed)
+        index = start + max(end, 1)
+    return objects
