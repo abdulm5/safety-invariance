@@ -101,14 +101,20 @@ This matrix adds:
 - `meta-llama/Llama-3.1-8B-Instruct`
 - `google/gemma-2-9b-it`
 - `Qwen/Qwen2.5-1.5B-Instruct`
+- the expanded `safety_signal_replication_v1` task suite
 
 The recommended staging is:
 
 1. Run `configs/data_collection_matrix_24gb.json` first.
-2. Run `configs/data_collection_matrix_rigorous_paper.json` once the pipeline is stable.
-3. Run the deep transform templates for Qwen and Llama after filling AWQ/GPTQ/LoRA repo IDs.
+2. Run `configs/qwen3b_signal_replication_matrix_24gb.json` to verify the quantization signal on more distinct prompts.
+3. Run `configs/data_collection_matrix_rigorous_paper.json` once the signal replicates.
+4. Run `configs/qwen3b_quant_mitigation_matrix_24gb.json` to test whether triggered escalation recovers safety retention.
+5. Run `configs/qwen3b_stochastic_robustness_matrix_24gb.json` to check whether the Qwen2.5-3B quantization gap survives stochastic decoding.
+6. Run the deep transform templates for Qwen and Llama after filling AWQ/GPTQ/LoRA repo IDs.
 
 This keeps early iteration cheap while preserving a credible main-paper path.
+
+The deterministic matrices use one seed. Repeating seeds with `temperature=0.0` should not be treated as independent evidence; use more distinct tasks or the stochastic robustness matrix instead.
 
 ## 3. External Benchmark Samples
 

@@ -29,6 +29,28 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual(matrix.seeds, (0,))
         self.assertTrue(any(path.endswith("safety_signal_replication.json") for path in matrix.task_paths))
 
+    def test_rigorous_paper_matrix_uses_distinct_prompt_suite(self) -> None:
+        matrix = load_collection_matrix("configs/data_collection_matrix_rigorous_paper.json")
+        runs = expand_matrix(matrix)
+        self.assertEqual(matrix.seeds, (0,))
+        self.assertTrue(any(path.endswith("safety_signal_replication.json") for path in matrix.task_paths))
+        self.assertTrue(any(run.model.model_id == "google/gemma-2-9b-it" for run in runs))
+
+    def test_qwen3b_mitigation_matrix_contains_triggered_variants(self) -> None:
+        matrix = load_collection_matrix("configs/qwen3b_quant_mitigation_matrix_24gb.json")
+        runs = expand_matrix(matrix)
+        names = {run.transform.name for run in runs}
+        self.assertIn("int8_triggered_escalation", names)
+        self.assertIn("nf4_4bit_triggered_escalation", names)
+        self.assertTrue(any(run.mitigation.get("triggered_escalation", {}).get("rerun_with_safer_profile") for run in runs))
+
+    def test_qwen3b_stochastic_matrix_uses_sampling(self) -> None:
+        matrix = load_collection_matrix("configs/qwen3b_stochastic_robustness_matrix_24gb.json")
+        runs = expand_matrix(matrix)
+        self.assertGreater(matrix.temperature, 0.0)
+        self.assertGreater(len(matrix.seeds), 1)
+        self.assertEqual(len(runs), 3)
+
     def test_builtin_suite_writer(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             suite_id, description, tasks = builtin_suite("chat_safety", limit=1)
