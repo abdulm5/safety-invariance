@@ -8,6 +8,7 @@ from pathlib import Path
 from safety_invariance.benchmark_importers import builtin_suite, huggingface_suite, write_task_suite
 from safety_invariance.calibration import calibrate_selective_precision
 from safety_invariance.config import load_run_config
+from safety_invariance.diagnostics import write_diagnostic_report
 from safety_invariance.evaluation import load_score_bundle, with_retention, write_score_bundle
 from safety_invariance.external import run_agentdojo, run_toolsandbox
 from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
@@ -48,6 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
     report_parser.add_argument("--runs", required=True, help="Glob for run dirs or scores.json files")
     report_parser.add_argument("--out", required=True, help="Output Markdown path")
     report_parser.set_defaults(func=cmd_report)
+
+    diagnose_parser = subparsers.add_parser("diagnose", help="Compare transformed runs against matching baselines")
+    diagnose_parser.add_argument("--runs", required=True, help="Glob for run dirs or scores.json files")
+    diagnose_parser.add_argument("--out", required=True, help="Output Markdown path")
+    diagnose_parser.add_argument("--baseline-transform", default="fp16", help="Baseline transform name")
+    diagnose_parser.set_defaults(func=cmd_diagnose)
 
     smoke_parser = subparsers.add_parser("smoke", help="Run no-GPU mock smoke experiments")
     smoke_parser.add_argument("--out", default="runs/smoke", help="Output directory for smoke runs")
@@ -138,6 +145,12 @@ def cmd_score(args: argparse.Namespace) -> int:
 
 def cmd_report(args: argparse.Namespace) -> int:
     output = write_markdown_report(args.runs, args.out)
+    print(str(output))
+    return 0
+
+
+def cmd_diagnose(args: argparse.Namespace) -> int:
+    output = write_diagnostic_report(args.runs, args.out, baseline_transform=args.baseline_transform)
     print(str(output))
     return 0
 

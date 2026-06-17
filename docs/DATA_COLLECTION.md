@@ -63,6 +63,14 @@ The matrix covers:
 
 Each transformed run is scored against the matching FP16 run for the same model.
 
+Generate a baseline-diff diagnostic report before moving to the expanded matrix:
+
+```bash
+si diagnose --runs 'runs/collection_24gb/*' --out reports/collection_24gb_diagnostics.md
+```
+
+This report shows safety and utility flips by task, seed, model, and transform. Use it to distinguish real deployment-transform effects from unchanged baseline failures or brittle task scoring.
+
 ## 2.5. Rigorous Paper Matrix
 
 For a stronger paper, use:
