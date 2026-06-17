@@ -1,6 +1,6 @@
 # Safety Invariance
 
-Research repo for measuring whether one-GPU deployment transformations preserve LLM-agent safety behavior as well as they preserve ordinary task utility.
+Measuring whether one-GPU deployment transformations preserve LLM-agent safety behavior as well as they preserve ordinary task utility.
 
 The repo supports:
 
