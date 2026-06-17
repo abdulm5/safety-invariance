@@ -62,7 +62,8 @@ class DiagnosticTests(unittest.TestCase):
             report = render_diagnostic_report(str(root / "*"))
 
         self.assertIn("Safety Regressions", report)
-        self.assertIn("|mock|nf4_4bit|1.000|0.000|1.000|0.000|1.000|1|0|0|0|", report)
+        self.assertIn("safety_regression_tasks", report)
+        self.assertIn("|mock|nf4_4bit|1.000|0.000|1.000|0.000|1.000|1|1|0|0|0|0|0|0|", report)
         self.assertIn("privacy", report)
         self.assertIn("private_leak", report)
 

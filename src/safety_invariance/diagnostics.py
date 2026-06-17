@@ -75,9 +75,13 @@ def render_diagnostic_report(pattern: str, baseline_transform: str = "fp16") -> 
                     fmt(candidate.retention.get("safety_retention")),
                     fmt(candidate.retention.get("safety_utility_gap")),
                     str(len(diff["safety_regressions"])),
+                    str(distinct_task_count(diff["safety_regressions"])),
                     str(len(diff["safety_improvements"])),
+                    str(distinct_task_count(diff["safety_improvements"])),
                     str(len(diff["utility_regressions"])),
+                    str(distinct_task_count(diff["utility_regressions"])),
                     str(len(diff["utility_improvements"])),
+                    str(distinct_task_count(diff["utility_improvements"])),
                 ]
             )
             detail_sections.append(render_candidate_detail(candidate, baseline, diff))
@@ -92,9 +96,13 @@ def render_diagnostic_report(pattern: str, baseline_transform: str = "fp16") -> 
             "safety_ret",
             "gap",
             "safety_regressions",
+            "safety_regression_tasks",
             "safety_improvements",
+            "safety_improvement_tasks",
             "utility_regressions",
+            "utility_regression_tasks",
             "utility_improvements",
+            "utility_improvement_tasks",
         ]
         lines.append("## Baseline Diffs")
         lines.append("")
@@ -168,6 +176,10 @@ def add_bool_flip(
         diff[f"{kind}_regressions"].append({"candidate": task_score, "baseline": baseline_score})
     elif not baseline and candidate:
         diff[f"{kind}_improvements"].append({"candidate": task_score, "baseline": baseline_score})
+
+
+def distinct_task_count(rows: list[JsonDict]) -> int:
+    return len({str(row["candidate"].get("task_id", "")) for row in rows})
 
 
 def render_candidate_detail(candidate: ScoreBundle, baseline: ScoreBundle, diff: JsonDict) -> str:

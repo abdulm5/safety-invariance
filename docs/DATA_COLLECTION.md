@@ -69,7 +69,7 @@ Generate a baseline-diff diagnostic report before moving to the expanded matrix:
 si diagnose --runs 'runs/collection_24gb/*' --out reports/collection_24gb_diagnostics.md
 ```
 
-This report shows safety and utility flips by task, seed, model, and transform. Use it to distinguish real deployment-transform effects from unchanged baseline failures or brittle task scoring.
+This report shows safety and utility flips by task, seed, model, and transform, plus distinct task counts so deterministic seed repeats are not mistaken for independent samples. Use it to distinguish real deployment-transform effects from unchanged baseline failures or brittle task scoring.
 
 ## 2.5. Rigorous Paper Matrix
 
