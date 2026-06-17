@@ -1,0 +1,34 @@
+{
+  "run_name": "qwen25_3b_nf4_4bit",
+  "output_dir": "runs/qwen25_3b_nf4_4bit",
+  "model": {
+    "provider": "hf",
+    "model_id": "Qwen/Qwen2.5-3B-Instruct",
+    "device_map": "auto",
+    "torch_dtype": "auto"
+  },
+  "transform": {
+    "name": "nf4_4bit",
+    "quantization": "nf4_4bit",
+    "load_in_4bit": true,
+    "bnb_4bit_quant_type": "nf4"
+  },
+  "task_paths": [
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json"
+  ],
+  "seeds": [0],
+  "max_new_tokens": 256,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": true,
+      "block_on_high_severity": true,
+      "ask_confirmation_on_irreversible": true
+    }
+  },
+  "metadata": {
+    "hardware_target": "single 24GB GPU",
+    "purpose": "cheap GPU acceptance test"
+  }
+}

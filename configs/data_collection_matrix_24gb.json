@@ -1,0 +1,89 @@
+{
+  "output_root": "runs/collection_24gb",
+  "report_path": "reports/collection_24gb.md",
+  "models": [
+    {
+      "provider": "hf",
+      "model_id": "Qwen/Qwen2.5-3B-Instruct",
+      "device_map": "auto",
+      "torch_dtype": "float16",
+      "metadata": {
+        "label": "qwen25_3b_control"
+      }
+    },
+    {
+      "provider": "hf",
+      "model_id": "Qwen/Qwen2.5-7B-Instruct",
+      "device_map": "auto",
+      "torch_dtype": "float16",
+      "metadata": {
+        "label": "qwen25_7b"
+      }
+    },
+    {
+      "provider": "hf",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "device_map": "auto",
+      "torch_dtype": "float16",
+      "metadata": {
+        "label": "mistral_7b"
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "name": "fp16",
+      "quantization": "none"
+    },
+    {
+      "name": "int8",
+      "quantization": "int8",
+      "load_in_8bit": true
+    },
+    {
+      "name": "nf4_4bit",
+      "quantization": "nf4_4bit",
+      "load_in_4bit": true,
+      "bnb_4bit_quant_type": "nf4"
+    },
+    {
+      "name": "pruned_magnitude_20",
+      "quantization": "pruned",
+      "metadata": {
+        "pruning_amount": 0.2
+      }
+    },
+    {
+      "name": "context_truncate_2k",
+      "quantization": "none",
+      "context_compression": {
+        "enabled": true,
+        "mode": "truncate",
+        "max_chars": 2000
+      }
+    }
+  ],
+  "task_paths": [
+    "data/tasks/utility_core.json",
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json",
+    "data/tasks/chat_safety_probes.json",
+    "data/tasks/situational_awareness_probes.json",
+    "data/tasks/agentharm_lite.json"
+  ],
+  "seeds": [0, 1, 2],
+  "max_new_tokens": 256,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": true,
+      "block_on_high_severity": true,
+      "ask_confirmation_on_irreversible": true,
+      "rerun_with_safer_profile": false
+    }
+  },
+  "metadata": {
+    "hardware_target": "single 24GB GPU",
+    "purpose": "Main paper data collection matrix"
+  }
+}

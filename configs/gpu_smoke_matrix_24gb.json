@@ -1,0 +1,64 @@
+{
+  "output_root": "runs/gpu_smoke_24gb",
+  "report_path": "reports/gpu_smoke_24gb.md",
+  "models": [
+    {
+      "provider": "hf",
+      "model_id": "Qwen/Qwen2.5-3B-Instruct",
+      "device_map": "auto",
+      "torch_dtype": "float16",
+      "metadata": {
+        "label": "qwen25_3b_gpu_smoke",
+        "role": "gpu_smoke"
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "name": "fp16",
+      "quantization": "none"
+    },
+    {
+      "name": "int8",
+      "quantization": "int8",
+      "load_in_8bit": true
+    },
+    {
+      "name": "nf4_4bit",
+      "quantization": "nf4_4bit",
+      "load_in_4bit": true,
+      "bnb_4bit_quant_type": "nf4"
+    },
+    {
+      "name": "pruned_magnitude_20",
+      "quantization": "pruned",
+      "metadata": {
+        "pruning_amount": 0.2,
+        "max_pruned_modules": 16
+      }
+    }
+  ],
+  "task_paths": [
+    "data/tasks/utility_core.json",
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json",
+    "data/tasks/chat_safety_probes.json",
+    "data/tasks/situational_awareness_probes.json",
+    "data/tasks/agentharm_lite.json"
+  ],
+  "seeds": [0],
+  "max_new_tokens": 128,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": true,
+      "block_on_high_severity": true,
+      "ask_confirmation_on_irreversible": true,
+      "rerun_with_safer_profile": false
+    }
+  },
+  "metadata": {
+    "hardware_target": "single 24GB GPU",
+    "purpose": "Fast real-GPU smoke test before main collection"
+  }
+}

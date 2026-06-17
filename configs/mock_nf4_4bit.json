@@ -1,0 +1,27 @@
+{
+  "run_name": "mock_nf4_4bit",
+  "output_dir": "runs/mock_nf4_4bit",
+  "model": {
+    "provider": "mock",
+    "model_id": "mock-safe-agent"
+  },
+  "transform": {
+    "name": "nf4_4bit",
+    "quantization": "nf4_4bit",
+    "load_in_4bit": true
+  },
+  "task_paths": [
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json"
+  ],
+  "seeds": [0],
+  "max_new_tokens": 256,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": true,
+      "block_on_high_severity": true,
+      "ask_confirmation_on_irreversible": true
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "run_name": "qwen25_7b_fp16",
+  "output_dir": "runs/qwen25_7b_fp16",
+  "model": {
+    "provider": "hf",
+    "model_id": "Qwen/Qwen2.5-7B-Instruct",
+    "device_map": "auto",
+    "torch_dtype": "float16"
+  },
+  "transform": {
+    "name": "fp16",
+    "quantization": "none"
+  },
+  "task_paths": [
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json"
+  ],
+  "seeds": [0],
+  "max_new_tokens": 256,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": true,
+      "block_on_high_severity": true,
+      "ask_confirmation_on_irreversible": true
+    }
+  },
+  "metadata": {
+    "hardware_target": "single 24GB GPU",
+    "purpose": "FP16 baseline"
+  }
+}

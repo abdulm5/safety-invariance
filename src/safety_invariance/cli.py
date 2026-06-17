@@ -1,0 +1,265 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from safety_invariance.benchmark_importers import builtin_suite, huggingface_suite, write_task_suite
+from safety_invariance.calibration import calibrate_selective_precision
+from safety_invariance.config import load_run_config
+from safety_invariance.evaluation import load_score_bundle, with_retention, write_score_bundle
+from safety_invariance.external import run_agentdojo, run_toolsandbox
+from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
+from safety_invariance.preflight import run_preflight
+from safety_invariance.reporting import write_markdown_report
+from safety_invariance.runner import run_experiment, write_summary_csv
+from safety_invariance.schemas import (
+    ModelSpec,
+    RunConfig,
+    TransformSpec,
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        return int(args.func(args))
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="si", description="Safety Invariance experiment CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    run_parser = subparsers.add_parser("run", help="Run one experiment config")
+    run_parser.add_argument("--config", required=True, help="Path to JSON/YAML run config")
+    run_parser.set_defaults(func=cmd_run)
+
+    score_parser = subparsers.add_parser("score", help="Compute retention against an FP16 baseline")
+    score_parser.add_argument("--run-dir", required=True, help="Run directory containing scores.json")
+    score_parser.add_argument("--baseline-run-dir", help="FP16 baseline run directory containing scores.json")
+    score_parser.set_defaults(func=cmd_score)
+
+    report_parser = subparsers.add_parser("report", help="Generate a Markdown report from run dirs")
+    report_parser.add_argument("--runs", required=True, help="Glob for run dirs or scores.json files")
+    report_parser.add_argument("--out", required=True, help="Output Markdown path")
+    report_parser.set_defaults(func=cmd_report)
+
+    smoke_parser = subparsers.add_parser("smoke", help="Run no-GPU mock smoke experiments")
+    smoke_parser.add_argument("--out", default="runs/smoke", help="Output directory for smoke runs")
+    smoke_parser.set_defaults(func=cmd_smoke)
+
+    collect_parser = subparsers.add_parser("collect", help="Run or dry-run a data-collection matrix")
+    collect_parser.add_argument("--matrix", required=True, help="Path to collection matrix JSON/YAML")
+    collect_parser.add_argument("--dry-run", action="store_true", help="Write plan and validate without running models")
+    collect_parser.add_argument("--no-skip-existing", action="store_true", help="Re-run directories that already have scores")
+    collect_parser.set_defaults(func=cmd_collect)
+
+    validate_parser = subparsers.add_parser("validate", help="Validate a collection matrix and task suites")
+    validate_parser.add_argument("--matrix", required=True, help="Path to collection matrix JSON/YAML")
+    validate_parser.set_defaults(func=cmd_validate)
+
+    preflight_parser = subparsers.add_parser("preflight", help="Check a GPU instance before running a matrix")
+    preflight_parser.add_argument("--matrix", required=True, help="Path to collection matrix JSON/YAML")
+    preflight_parser.add_argument("--check-hf-access", action="store_true", help="Call Hugging Face Hub model_info for target models")
+    preflight_parser.set_defaults(func=cmd_preflight)
+
+    suite_parser = subparsers.add_parser("make-suite", help="Materialize built-in or Hugging Face benchmark tasks")
+    suite_parser.add_argument(
+        "--source",
+        required=True,
+        help="utility_core, chat_safety, situational_awareness, agentharm_lite, gsm8k, mmlu, mbpp, or humaneval",
+    )
+    suite_parser.add_argument("--out", required=True, help="Output task-suite JSON")
+    suite_parser.add_argument("--limit", type=int, default=None, help="Maximum tasks to write")
+    suite_parser.add_argument("--dataset-id", help="Override Hugging Face dataset id")
+    suite_parser.add_argument("--dataset-config", help="Override Hugging Face dataset config/name")
+    suite_parser.add_argument("--split", default="test", help="Dataset split for Hugging Face imports")
+    suite_parser.set_defaults(func=cmd_make_suite)
+
+    calibrate_parser = subparsers.add_parser(
+        "calibrate-selective",
+        help="Generate selective-precision transform from baseline/candidate traces",
+    )
+    calibrate_parser.add_argument("--baseline-run-dir", required=True)
+    calibrate_parser.add_argument("--candidate-run-dir", required=True)
+    calibrate_parser.add_argument("--out", required=True)
+    calibrate_parser.add_argument("--max-modules", type=int, default=4)
+    calibrate_parser.set_defaults(func=cmd_calibrate_selective)
+
+    dojo_parser = subparsers.add_parser("run-agentdojo", help="Run AgentDojo's native benchmark script")
+    dojo_parser.add_argument("--model", required=True, help="AgentDojo model registry id")
+    dojo_parser.add_argument("--out-dir", required=True)
+    dojo_parser.add_argument("--suite")
+    dojo_parser.add_argument("--attack", default="tool_knowledge")
+    dojo_parser.add_argument("--defense", default="tool_filter")
+    dojo_parser.add_argument("--user-task", action="append", default=[])
+    dojo_parser.add_argument("--extra-arg", action="append", default=[])
+    dojo_parser.add_argument("--dry-run", action="store_true")
+    dojo_parser.set_defaults(func=cmd_run_agentdojo)
+
+    sandbox_parser = subparsers.add_parser("run-toolsandbox", help="Run ToolSandbox's native CLI and capture output")
+    sandbox_parser.add_argument("--agent", required=True, help="ToolSandbox agent id")
+    sandbox_parser.add_argument("--out-dir", required=True)
+    sandbox_parser.add_argument("--user", default="GPT_4_o_2024_05_13")
+    sandbox_parser.add_argument("--scenario")
+    sandbox_parser.add_argument("--extra-arg", action="append", default=[])
+    sandbox_parser.add_argument("--dry-run", action="store_true")
+    sandbox_parser.set_defaults(func=cmd_run_toolsandbox)
+    return parser
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    config = load_run_config(args.config)
+    bundle = run_experiment(config)
+    print(json.dumps({"run_dir": str(config.run_dir), "utility_score": bundle.utility_score, "safety_score": bundle.safety_score}))
+    return 0
+
+
+def cmd_score(args: argparse.Namespace) -> int:
+    run_dir = Path(args.run_dir)
+    bundle = load_score_bundle(run_dir / "scores.json")
+    if args.baseline_run_dir:
+        baseline = load_score_bundle(Path(args.baseline_run_dir) / "scores.json")
+    else:
+        if bundle.transform not in {"fp16", "baseline"}:
+            raise ValueError("--baseline-run-dir is required for transformed runs")
+        baseline = bundle
+    scored = with_retention(bundle, baseline)
+    write_score_bundle(run_dir / "scores.json", scored)
+    write_summary_csv(run_dir / "summary.csv", scored)
+    print(json.dumps(scored.retention, sort_keys=True))
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    output = write_markdown_report(args.runs, args.out)
+    print(str(output))
+    return 0
+
+
+def cmd_smoke(args: argparse.Namespace) -> int:
+    run_smoke(Path(args.out))
+    print(json.dumps({"smoke_dir": str(args.out), "report": str(Path(args.out) / "summary.md")}))
+    return 0
+
+
+def cmd_collect(args: argparse.Namespace) -> int:
+    result = run_collection_matrix(
+        args.matrix,
+        dry_run=args.dry_run,
+        skip_existing=not args.no_skip_existing,
+    )
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    matrix = load_collection_matrix(args.matrix)
+    runs = expand_matrix(matrix)
+    result = validate_matrix(matrix, runs)
+    print(json.dumps(result, sort_keys=True))
+    return 1 if result["errors"] else 0
+
+
+def cmd_preflight(args: argparse.Namespace) -> int:
+    result = run_preflight(args.matrix, check_hf_access=args.check_hf_access)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 1 if result["errors"] else 0
+
+
+def cmd_make_suite(args: argparse.Namespace) -> int:
+    hf_sources = {"gsm8k", "mmlu", "mbpp", "humaneval"}
+    if args.source in hf_sources:
+        suite_id, description, tasks = huggingface_suite(
+            args.source,
+            dataset_id=args.dataset_id,
+            dataset_config=args.dataset_config,
+            split=args.split,
+            limit=args.limit or 100,
+        )
+    else:
+        suite_id, description, tasks = builtin_suite(args.source, limit=args.limit)
+    output = write_task_suite(args.out, suite_id, description, tasks)
+    print(json.dumps({"out": str(output), "suite_id": suite_id, "task_count": len(tasks)}))
+    return 0
+
+
+def cmd_calibrate_selective(args: argparse.Namespace) -> int:
+    payload = calibrate_selective_precision(
+        baseline_run_dir=args.baseline_run_dir,
+        candidate_run_dir=args.candidate_run_dir,
+        out=args.out,
+        max_modules=args.max_modules,
+    )
+    print(json.dumps({"out": args.out, "selected_modules": payload["selected_modules"]}, sort_keys=True))
+    return 0
+
+
+def cmd_run_agentdojo(args: argparse.Namespace) -> int:
+    result = run_agentdojo(
+        model=args.model,
+        out_dir=args.out_dir,
+        suite=args.suite,
+        attack=args.attack,
+        defense=args.defense,
+        user_tasks=tuple(args.user_task),
+        extra_args=tuple(args.extra_arg),
+        dry_run=args.dry_run,
+    )
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_run_toolsandbox(args: argparse.Namespace) -> int:
+    result = run_toolsandbox(
+        agent=args.agent,
+        out_dir=args.out_dir,
+        user=args.user,
+        scenario=args.scenario,
+        extra_args=tuple(args.extra_arg),
+        dry_run=args.dry_run,
+    )
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def run_smoke(out_dir: Path) -> None:
+    task_paths = ("data/tasks/agentdojo_minimal.json", "data/tasks/custom_safety.json")
+    fp16 = RunConfig(
+        run_name="mock_fp16",
+        output_dir=str(out_dir / "fp16"),
+        model=ModelSpec(provider="mock", model_id="mock-safe-agent"),
+        transform=TransformSpec(name="fp16", quantization="none"),
+        task_paths=task_paths,
+        seeds=(0,),
+        mitigation={"triggered_escalation": {"enabled": True}},
+        metadata={"smoke": True},
+    )
+    four_bit = RunConfig(
+        run_name="mock_nf4_4bit",
+        output_dir=str(out_dir / "nf4_4bit"),
+        model=ModelSpec(provider="mock", model_id="mock-safe-agent"),
+        transform=TransformSpec(name="nf4_4bit", quantization="nf4_4bit", load_in_4bit=True),
+        task_paths=task_paths,
+        seeds=(0,),
+        mitigation={"triggered_escalation": {"enabled": True}},
+        metadata={"smoke": True},
+    )
+    baseline = run_experiment(fp16)
+    transformed = run_experiment(four_bit)
+    transformed = with_retention(transformed, baseline)
+    write_score_bundle(out_dir / "nf4_4bit" / "scores.json", transformed)
+    write_summary_csv(out_dir / "nf4_4bit" / "summary.csv", transformed)
+    baseline = with_retention(baseline, baseline)
+    write_score_bundle(out_dir / "fp16" / "scores.json", baseline)
+    write_summary_csv(out_dir / "fp16" / "summary.csv", baseline)
+    write_markdown_report(str(out_dir / "*"), out_dir / "summary.md")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

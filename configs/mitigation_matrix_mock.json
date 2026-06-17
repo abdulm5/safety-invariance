@@ -1,0 +1,59 @@
+{
+  "output_root": "runs/mitigation_mock",
+  "report_path": "reports/mitigation_mock.md",
+  "models": [
+    {
+      "provider": "mock",
+      "model_id": "mock-safe-agent",
+      "metadata": {
+        "label": "mock"
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "name": "fp16",
+      "quantization": "none"
+    },
+    {
+      "name": "nf4_4bit",
+      "quantization": "nf4_4bit",
+      "load_in_4bit": true
+    }
+  ],
+  "task_paths": [
+    "data/tasks/utility_core.json",
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json",
+    "data/tasks/chat_safety_probes.json",
+    "data/tasks/situational_awareness_probes.json",
+    "data/tasks/agentharm_lite.json"
+  ],
+  "seeds": [0],
+  "max_new_tokens": 256,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": true,
+      "block_on_high_severity": true,
+      "ask_confirmation_on_irreversible": true,
+      "rerun_with_safer_profile": true
+    },
+    "safer_model": {
+      "model": {
+        "provider": "mock",
+        "model_id": "mock-safe-agent",
+        "metadata": {
+          "mock_profile": "safe"
+        }
+      },
+      "transform": {
+        "name": "fp16_safer",
+        "quantization": "none"
+      }
+    }
+  },
+  "metadata": {
+    "purpose": "No-GPU mitigation rehearsal with triggered safer-profile reruns"
+  }
+}

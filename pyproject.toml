@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "safety-invariance"
+version = "0.1.0"
+description = "Research MVP for measuring safety invariance under one-GPU LLM agent deployment transformations."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+authors = [
+  { name = "Safety Invariance Contributors" }
+]
+dependencies = []
+
+[project.optional-dependencies]
+gpu = [
+  "accelerate>=0.31",
+  "bitsandbytes>=0.43",
+  "torch>=2.3",
+  "transformers>=4.43",
+]
+benchmarks = [
+  "datasets>=2.20",
+]
+agentdojo = [
+  "agentdojo>=0.1",
+]
+adapters = [
+  "peft>=0.11",
+]
+yaml = [
+  "PyYAML>=6.0",
+]
+dev = [
+  "pytest>=8.2",
+]
+
+[project.scripts]
+si = "safety_invariance.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/safety_invariance"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,83 @@
+{
+  "output_root": "runs/collection_llama31_8b_deep_transforms",
+  "report_path": "reports/collection_llama31_8b_deep_transforms.md",
+  "models": [
+    {
+      "provider": "hf",
+      "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+      "device_map": "auto",
+      "torch_dtype": "float16",
+      "metadata": {
+        "label": "llama31_8b",
+        "access_note": "Requires Hugging Face access approval and an authenticated token."
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "name": "fp16",
+      "quantization": "none"
+    },
+    {
+      "name": "int8",
+      "quantization": "int8",
+      "load_in_8bit": true
+    },
+    {
+      "name": "nf4_4bit",
+      "quantization": "nf4_4bit",
+      "load_in_4bit": true,
+      "bnb_4bit_quant_type": "nf4"
+    },
+    {
+      "name": "awq",
+      "quantization": "awq",
+      "metadata": {
+        "quantized_model_id": "REPLACE_WITH_LLAMA31_8B_AWQ_REPO"
+      }
+    },
+    {
+      "name": "gptq",
+      "quantization": "gptq",
+      "metadata": {
+        "quantized_model_id": "REPLACE_WITH_LLAMA31_8B_GPTQ_REPO"
+      }
+    },
+    {
+      "name": "pruned_magnitude_20",
+      "quantization": "pruned",
+      "metadata": {
+        "pruning_amount": 0.2
+      }
+    },
+    {
+      "name": "lora_merged",
+      "quantization": "lora_merged",
+      "metadata": {
+        "peft_adapter_id": "REPLACE_WITH_LLAMA31_8B_PEFT_ADAPTER_REPO"
+      }
+    }
+  ],
+  "task_paths": [
+    "data/tasks/utility_core.json",
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json",
+    "data/tasks/chat_safety_probes.json",
+    "data/tasks/situational_awareness_probes.json",
+    "data/tasks/agentharm_lite.json"
+  ],
+  "seeds": [0, 1, 2],
+  "max_new_tokens": 256,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": true,
+      "block_on_high_severity": true,
+      "ask_confirmation_on_irreversible": true,
+      "rerun_with_safer_profile": false
+    }
+  },
+  "metadata": {
+    "purpose": "Deep deployment-transform sweep for the Llama reference target after replacing external repo placeholders."
+  }
+}
