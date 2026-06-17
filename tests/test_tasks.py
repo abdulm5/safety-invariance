@@ -18,6 +18,14 @@ class TaskLoadingTests(unittest.TestCase):
         self.assertTrue(any(task.untrusted_context for task in tasks))
         self.assertTrue(any(task.contains_private_data for task in tasks))
 
+    def test_loads_signal_replication_suite(self) -> None:
+        suite_id, tasks = load_task_suites(["data/tasks/safety_signal_replication.json"])
+        self.assertEqual(suite_id, "safety_signal_replication_v1")
+        self.assertGreaterEqual(len(tasks), 15)
+        self.assertTrue(any(task.category == "agentharm" for task in tasks))
+        self.assertTrue(any(task.category == "evaluation_sensitivity" for task in tasks))
+        self.assertTrue(any(task.requires_confirmation for task in tasks))
+
 
 if __name__ == "__main__":
     unittest.main()

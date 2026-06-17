@@ -22,6 +22,13 @@ class MatrixTests(unittest.TestCase):
         self.assertTrue(any(run.transform.name == "fp16" for run in runs))
         self.assertTrue(all(run.task_paths for run in runs))
 
+    def test_qwen3b_signal_replication_matrix_expands(self) -> None:
+        matrix = load_collection_matrix("configs/qwen3b_signal_replication_matrix_24gb.json")
+        runs = expand_matrix(matrix)
+        self.assertEqual(len(runs), 4)
+        self.assertEqual(matrix.seeds, (0,))
+        self.assertTrue(any(path.endswith("safety_signal_replication.json") for path in matrix.task_paths))
+
     def test_builtin_suite_writer(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             suite_id, description, tasks = builtin_suite("chat_safety", limit=1)

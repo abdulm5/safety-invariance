@@ -71,6 +71,17 @@ si diagnose --runs 'runs/collection_24gb/*' --out reports/collection_24gb_diagno
 
 This report shows safety and utility flips by task, seed, model, and transform, plus distinct task counts so deterministic seed repeats are not mistaken for independent samples. Use it to distinguish real deployment-transform effects from unchanged baseline failures or brittle task scoring.
 
+If the pilot shows a concentrated signal, run the focused Qwen2.5-3B replication before the expanded paper matrix:
+
+```bash
+si preflight --matrix configs/qwen3b_signal_replication_matrix_24gb.json
+si collect --matrix configs/qwen3b_signal_replication_matrix_24gb.json --dry-run
+si collect --matrix configs/qwen3b_signal_replication_matrix_24gb.json
+si diagnose --runs 'runs/qwen3b_signal_replication_24gb/*' --out reports/qwen3b_signal_replication_24gb_diagnostics.md
+```
+
+This matrix uses one deterministic seed and adds more distinct prompt-injection, privacy, unsafe-tool-use, evaluation-sensitivity, confirmation, AgentHarm-style, and chat-safety prompts. It is meant to replicate the pilot signal cheaply before spending on the larger model set.
+
 ## 2.5. Rigorous Paper Matrix
 
 For a stronger paper, use:
