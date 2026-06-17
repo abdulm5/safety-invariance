@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from inspect import signature
 from typing import Protocol
 
+from safety_invariance.compat import ensure_torch_module_set_submodule
 from safety_invariance.schemas import ModelSpec, TaskSpec, TransformSpec
 from safety_invariance.tools import ToolDefinition
 
@@ -128,6 +129,7 @@ class HFModelClient:
             raise RuntimeError(
                 "HF model runs require optional GPU dependencies: pip install -e '.[gpu]'"
             ) from exc
+        set_submodule_shimmed = ensure_torch_module_set_submodule(torch)
 
         model_id = self.transform.metadata.get("quantized_model_id", self.model.model_id)
         quantization_config = None
@@ -171,6 +173,7 @@ class HFModelClient:
             quantization_config=quantization_config,
             trust_remote_code=self.model.trust_remote_code,
         )
+        self.compatibility: dict[str, bool] = {"torch_set_submodule_shimmed": set_submodule_shimmed}
         if self.transform.quantization == "lora_merged":
             self.model_obj = self._merge_lora_adapter(self.model_obj)
         if self.transform.quantization == "pruned":
