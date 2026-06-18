@@ -5,21 +5,27 @@ import sys
 import tempfile
 import types
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 from safety_invariance.evaluation import write_score_bundle
 from safety_invariance.matrix import run_collection_matrix
 from safety_invariance.modeling import HFModelClient
+from safety_invariance.margin_calibration import collect_action_margins
 from safety_invariance.schemas import ScoreBundle, TransformSpec
 from safety_invariance.selective_precision import (
     analyze_selective_calibration,
+    apply_action_margin_scores,
     exact_mcnemar_p,
     holm_bonferroni,
     load_selective_precision_study,
     paired_bootstrap_delta,
+    fidelity_margin_recovery,
     write_selective_calibration_matrix,
     write_selective_precision_report,
+    safety_margin_recovery,
+    summarize_random_controls,
 )
 
 
@@ -65,6 +71,8 @@ class SelectivePrecisionTests(unittest.TestCase):
             "configs/qwen3b_nf4_selective_precision_study_24gb.json"
         )
         self.assertEqual(len(study.blocks), 36)
+        self.assertEqual(study.ranking_method, "action_margin")
+        self.assertEqual(len(study.action_probes), 23)
         self.assertTrue(any(path.endswith("utility_core.json") for path in study.calibration_task_paths))
         self.assertTrue(
             any(path.endswith("selective_precision_utility_heldout.json") for path in study.evaluation_task_paths)
@@ -75,6 +83,101 @@ class SelectivePrecisionTests(unittest.TestCase):
         self.assertEqual(len(matrix["transforms"]), 38)
         self.assertEqual(matrix["transforms"][2]["keep_modules_high_precision"], ["model.layers.0"])
         self.assertFalse(matrix["mitigation"]["triggered_escalation"]["enabled"])
+
+    def test_action_margin_recovery_scores_dense_interventions(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            study = load_selective_precision_study(self._write_study(Path(temp)))
+        study = replace(study, ranking_method="action_margin", utility_penalty=0.5)
+        block_results = [
+            {
+                "block": "model.layers.0",
+                "transform": "restore_block_00",
+                "high_precision_cost_bytes": 1024**3,
+                "safety_score_gain": 0.0,
+                "utility_score_gain": 0.0,
+            },
+            {
+                "block": "model.layers.1",
+                "transform": "restore_block_01",
+                "high_precision_cost_bytes": 1024**3,
+                "safety_score_gain": 0.0,
+                "utility_score_gain": 0.0,
+            },
+        ]
+        margins = {
+            "transforms": {
+                "fp16": {
+                    "tasks": {
+                        "safe": {"probe_kind": "safety", "preference_margin": 2.0},
+                        "utility": {"probe_kind": "utility", "preference_margin": 1.0},
+                    }
+                },
+                "nf4_4bit": {
+                    "tasks": {
+                        "safe": {"probe_kind": "safety", "preference_margin": 0.0},
+                        "utility": {"probe_kind": "utility", "preference_margin": 0.8},
+                    }
+                },
+                "restore_block_00": {
+                    "tasks": {
+                        "safe": {"probe_kind": "safety", "preference_margin": 2.0},
+                        "utility": {"probe_kind": "utility", "preference_margin": 0.0},
+                    }
+                },
+                "restore_block_01": {
+                    "tasks": {
+                        "safe": {"probe_kind": "safety", "preference_margin": 0.5},
+                        "utility": {"probe_kind": "utility", "preference_margin": 1.0},
+                    }
+                },
+            }
+        }
+        scored = apply_action_margin_scores(
+            study,
+            margins,
+            block_results,
+            baseline_scores={
+                ("safe", 0): {"safety_success": True, "category": "privacy"},
+                ("utility", 0): {"safety_success": True, "category": "utility"},
+            },
+        )
+        self.assertAlmostEqual(scored[0]["safety_margin_recovery"], 1.0)
+        self.assertAlmostEqual(scored[0]["utility_margin_damage"], 1.0)
+        self.assertGreater(scored[0]["action_margin_objective"], scored[1]["action_margin_objective"])
+        self.assertAlmostEqual(safety_margin_recovery(2.0, 0.0, 2.0, epsilon=0.05), 1.0)
+        self.assertAlmostEqual(fidelity_margin_recovery(1.0, 0.8, 1.0, epsilon=0.05), 1.0)
+
+    def test_margin_collection_is_complete_and_resumable_with_fake_model(self) -> None:
+        class FakeMarginModel:
+            def preference_margin(self, prompt, *, preferred_completion, dispreferred_completion):
+                del prompt
+                preferred = -float(len(preferred_completion)) / 100
+                dispreferred = -float(len(dispreferred_completion)) / 100
+                return {
+                    "preferred_log_likelihood": preferred,
+                    "dispreferred_log_likelihood": dispreferred,
+                    "preference_margin": preferred - dispreferred,
+                }
+
+            def get_runtime_metadata(self):
+                return {"backend": "fake"}
+
+        study = load_selective_precision_study(
+            "configs/qwen3b_nf4_selective_precision_study_24gb.json"
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "margins.json"
+            with patch(
+                "safety_invariance.margin_calibration.load_model_client",
+                return_value=FakeMarginModel(),
+            ) as loader:
+                payload = collect_action_margins(study, out=output)
+                resumed = collect_action_margins(study, out=output)
+            self.assertTrue(payload["complete"])
+            self.assertEqual(len(payload["completed_transforms"]), 38)
+            self.assertEqual(payload["probe_count"], 23)
+            self.assertEqual(loader.call_count, 38)
+            self.assertEqual(resumed["fingerprint"], payload["fingerprint"])
 
     def test_causal_ranking_and_evaluation_matrix(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -116,6 +219,63 @@ class SelectivePrecisionTests(unittest.TestCase):
                 {"model.layers.0", "model.layers.2", "model.layers.3"},
             )
 
+    def test_action_margin_analyzer_generates_new_selected_variants(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            study = load_selective_precision_study(self._write_study(root))
+            margin_path = root / "margins.json"
+            study = replace(
+                study,
+                ranking_method="action_margin",
+                margin_artifact_path=str(margin_path),
+            )
+            run_root = root / "calibration"
+            bundles = {
+                "fp16": self._bundle("fp16", [True, True, True], [True, True, True]),
+                "nf4_4bit": self._bundle("nf4_4bit", [False, False, True], [True, True, True]),
+                "restore_block_00": self._bundle("restore_block_00", [True, False, True], [True, True, True]),
+                "restore_block_01": self._bundle("restore_block_01", [True, True, True], [True, True, True]),
+                "restore_block_02": self._bundle("restore_block_02", [False, False, True], [True, True, True]),
+                "restore_block_03": self._bundle("restore_block_03", [False, False, False], [True, True, True]),
+            }
+            for bundle in bundles.values():
+                self._write_run(run_root, bundle, role="calibration")
+            margins = {"complete": True, "transforms": {}}
+            transform_margins = {
+                "fp16": 2.0,
+                "nf4_4bit": 0.0,
+                "restore_block_00": 1.0,
+                "restore_block_01": 2.0,
+                "restore_block_02": 0.0,
+                "restore_block_03": -1.0,
+            }
+            for transform, margin in transform_margins.items():
+                margins["transforms"][transform] = {
+                    "tasks": {
+                        f"task_{index}": {
+                            "probe_kind": "safety",
+                            "preference_margin": margin,
+                        }
+                        for index in range(3)
+                    }
+                }
+            margin_path.write_text(json.dumps(margins), encoding="utf-8")
+            matrix_path = root / "margin_evaluation.json"
+            result = analyze_selective_calibration(
+                study,
+                run_root=run_root,
+                out=root / "selection.json",
+                evaluation_matrix_out=matrix_path,
+            )
+            self.assertEqual(result["ranking_method"], "action_margin")
+            self.assertEqual(result["safety_ranking"][0], "model.layers.1")
+            matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+            transforms = {item["name"]: item for item in matrix["transforms"]}
+            self.assertEqual(
+                transforms["selective_margin_safety_b25"]["keep_modules_high_precision"],
+                ["model.layers.1"],
+            )
+
     def test_paired_statistics_and_report(self) -> None:
         left = self._bundle("nf4_4bit", [False, False, True, True], [True, True, True, True])
         right = self._bundle("selective", [True, False, True, True], [True, True, True, True])
@@ -154,6 +314,36 @@ class SelectivePrecisionTests(unittest.TestCase):
             self.assertIn("Selective Precision Held-Out Evaluation", text)
             self.assertIn("causal_safety_recovery", text)
             self.assertTrue(report.with_suffix(".json").exists())
+
+    def test_random_control_summary_compares_equal_budgets(self) -> None:
+        rows = [
+            {
+                "transform": "selected",
+                "strategy": "action_margin_causal_recovery",
+                "budget": 0.1,
+                "safety": 0.8,
+                "utility": 0.9,
+            },
+            {
+                "transform": "random_0",
+                "strategy": "random_blocks",
+                "budget": 0.1,
+                "safety": 0.6,
+                "utility": 0.8,
+            },
+            {
+                "transform": "random_1",
+                "strategy": "random_blocks",
+                "budget": 0.1,
+                "safety": 0.7,
+                "utility": 1.0,
+            },
+        ]
+        summary = summarize_random_controls(rows)
+        self.assertEqual(len(summary), 1)
+        self.assertAlmostEqual(summary[0]["random_mean_safety"], 0.65)
+        self.assertAlmostEqual(summary[0]["selected_minus_random_mean_safety"], 0.15)
+        self.assertEqual(summary[0]["selected_safety_percentile"], 1.0)
 
     def test_mock_study_runs_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -198,6 +388,7 @@ class SelectivePrecisionTests(unittest.TestCase):
             "budgets": [0.25, 0.5],
             "random_controls": 2,
             "require_disjoint_tasks": False,
+            "ranking_method": "binary_flip",
             "calibration_artifact_path": str(root / "selection.json"),
             "evaluation_matrix_path": str(root / "evaluation.json"),
         }

@@ -12,6 +12,7 @@ from safety_invariance.diagnostics import write_diagnostic_report
 from safety_invariance.evaluation import load_score_bundle, with_retention, write_score_bundle
 from safety_invariance.external import run_agentdojo, run_toolsandbox
 from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
+from safety_invariance.margin_calibration import collect_action_margins
 from safety_invariance.mechanistic import analyze_mechanistic_divergence
 from safety_invariance.preflight import run_preflight
 from safety_invariance.reporting import write_markdown_report
@@ -133,6 +134,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override generated held-out evaluation matrix path",
     )
     selective_analyze_parser.set_defaults(func=cmd_selective_analyze)
+
+    margin_collect_parser = subparsers.add_parser(
+        "selective-margin-collect",
+        help="Collect preferred-vs-dispreferred completion margins for every block intervention",
+    )
+    margin_collect_parser.add_argument("--study", required=True, help="Selective-precision study JSON/YAML")
+    margin_collect_parser.add_argument("--out", help="Override action-margin artifact path")
+    margin_collect_parser.add_argument(
+        "--no-skip-existing",
+        action="store_true",
+        help="Discard an existing margin artifact and recompute every transform",
+    )
+    margin_collect_parser.set_defaults(func=cmd_selective_margin_collect)
 
     selective_report_parser = subparsers.add_parser(
         "selective-report",
@@ -308,9 +322,47 @@ def cmd_selective_analyze(args: argparse.Namespace) -> int:
         json.dumps(
             {
                 "study": study.name,
+                "ranking_method": result["ranking_method"],
                 "baseline_regression_count": result["baseline_regression_count"],
                 "calibration_artifact_path": result["calibration_artifact_path"],
                 "evaluation_matrix_path": result["evaluation_matrix_path"],
+                "top_blocks": result["safety_ranking"][:10],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def cmd_selective_margin_collect(args: argparse.Namespace) -> int:
+    study = load_selective_precision_study(args.study)
+
+    def report_progress(transform: str, completed: int, total: int) -> None:
+        print(
+            json.dumps(
+                {
+                    "transform": transform,
+                    "completed": completed,
+                    "total": total,
+                },
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+
+    result = collect_action_margins(
+        study,
+        out=args.out,
+        skip_existing=not args.no_skip_existing,
+        on_completed=report_progress,
+    )
+    print(
+        json.dumps(
+            {
+                "study": study.name,
+                "artifact_path": args.out or study.margin_artifact_path,
+                "complete": result["complete"],
+                "completed_transforms": len(result["completed_transforms"]),
             },
             sort_keys=True,
         )

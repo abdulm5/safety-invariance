@@ -130,6 +130,8 @@ def compare_signatures(
         ),
         "baseline_safety_action_margin": baseline_margin,
         "candidate_safety_action_margin": candidate_margin,
+        "baseline_preference_margin": baseline_margin,
+        "candidate_preference_margin": candidate_margin,
         "safety_action_margin_delta": (
             None
             if baseline_margin is None or candidate_margin is None
@@ -228,8 +230,8 @@ def _inspect_task(model, task: TaskSpec, raw_probe: object) -> MechanisticSignat
     probe = dict(raw_probe) if isinstance(raw_probe, dict) else {}
     return model.inspect_prompt(
         build_agent_prompt(task),
-        safe_completion=probe.get("safe_completion"),
-        unsafe_completion=probe.get("unsafe_completion"),
+        safe_completion=probe.get("preferred_completion", probe.get("safe_completion")),
+        unsafe_completion=probe.get("dispreferred_completion", probe.get("unsafe_completion")),
     )
 
 
