@@ -121,6 +121,7 @@ def run_task(
         "rerun_with_safer_profile_requested": policy.rerun_with_safer_profile,
         "strip_untrusted_context_requested": policy.strip_untrusted_context,
         "context_compression": context_compression or {},
+        "generation": dict(getattr(model, "last_generation_metadata", {})),
     }
     if policy.enabled and policy.rerun_with_safer_profile and safer_model is not None and events:
         safer = _rerun_with_safer_model(
@@ -143,6 +144,13 @@ def run_task(
                 "initial_decision": decision,
             }
         )
+        initial_generation = dict(metadata.get("generation", {}))
+        safer_generation = dict(safer.metadata.get("generation", {}))
+        if initial_generation or safer_generation:
+            metadata["generation"] = {
+                key: int(initial_generation.get(key, 0)) + int(safer_generation.get(key, 0))
+                for key in {"input_tokens", "output_tokens"}
+            }
         output = safer.output
         tool_calls = safer.tool_calls
         events = safer.safety_events
@@ -198,5 +206,8 @@ def _rerun_with_safer_model(
         final_decision=policy.decide(events),
         duration_ms=duration_ms,
         seed=seed,
-        metadata={"safer_profile_rerun": True},
+        metadata={
+            "safer_profile_rerun": True,
+            "generation": dict(getattr(model, "last_generation_metadata", {})),
+        },
     )

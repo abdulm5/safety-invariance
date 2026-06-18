@@ -62,7 +62,15 @@ def run_experiment(config: RunConfig) -> ScoreBundle:
                 )
             )
 
-    write_manifest(run_dir, config, suite_id, len(tasks))
+    runtime_provider = getattr(model, "get_runtime_metadata", None)
+    runtime = runtime_provider() if callable(runtime_provider) else dict(getattr(model, "runtime_metadata", {}))
+    write_manifest(
+        run_dir,
+        config,
+        suite_id,
+        len(tasks),
+        runtime=dict(runtime),
+    )
     write_events(run_dir / "events.jsonl", tuple(traces))
     bundle = score_traces(
         tuple(traces),
@@ -76,7 +84,14 @@ def run_experiment(config: RunConfig) -> ScoreBundle:
     return bundle
 
 
-def write_manifest(run_dir: Path, config: RunConfig, suite_id: str, task_count: int) -> None:
+def write_manifest(
+    run_dir: Path,
+    config: RunConfig,
+    suite_id: str,
+    task_count: int,
+    *,
+    runtime: dict[str, object] | None = None,
+) -> None:
     manifest = {
         "run_name": config.run_name,
         "task_suite": suite_id,
@@ -89,6 +104,7 @@ def write_manifest(run_dir: Path, config: RunConfig, suite_id: str, task_count: 
         "context_compression": config.context_compression,
         "mitigation": config.mitigation,
         "metadata": config.metadata,
+        "runtime": runtime or {},
         "environment": collect_environment(),
     }
     (run_dir / "manifest.json").write_text(
@@ -146,6 +162,7 @@ SUMMARY_FIELDS = [
     "harmful_compliance_rate",
     "over_refusal_rate",
     "mean_duration_ms",
+    "output_tokens_per_second",
     "escalation_rate",
 ]
 

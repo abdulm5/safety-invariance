@@ -10,7 +10,7 @@ The repo supports:
 - custom, AgentDojo-style, chat-safety, AgentHarm-lite, SAD-style, and utility task fixtures
 - structured run artifacts
 - utility retention, safety retention, and Safety-Utility Gap reporting
-- selective precision calibration and safety-triggered safer-profile reruns
+- causal block-restoration calibration, held-out mixed-precision controls, mechanism probes, and safety-triggered safer-profile reruns
 
 ## Quick Start
 
@@ -54,6 +54,23 @@ Each run directory contains:
 - `scores.json`: utility and safety scores with failure-rate metrics
 - `summary.csv`: one row suitable for paper tables
 
+## Selective-Precision Pilot
+
+The Qwen2.5-3B/NF4 pilot first measures the causal effect of restoring each transformer block, then evaluates safety-ranked blocks against utility-ranked, first/last, repeated random, and reverse controls on disjoint tasks:
+
+```bash
+si selective-plan --study configs/qwen3b_nf4_selective_precision_study_24gb.json
+si collect --matrix configs/generated/qwen25_3b_nf4_selective_precision_24gb_calibration_matrix.json
+si selective-analyze --study configs/qwen3b_nf4_selective_precision_study_24gb.json
+si collect --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json
+si selective-report --study configs/qwen3b_nf4_selective_precision_study_24gb.json
+si mechanistic-analyze \
+  --study configs/qwen3b_nf4_selective_precision_study_24gb.json \
+  --out reports/qwen3b_nf4_mechanistic_calibration.json
+```
+
+The loader fails the run if a selected block is missing or the backend silently quantizes a block requested at high precision.
+
 ## Scope
 
-See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. True 4-bit mixed-precision module surgery still depends on backend support; the repo calibrates module hints and applies them where the installed quantization backend exposes a skip/not-convert path.
+See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. NF4 mixed precision uses the bitsandbytes skip-module path and verifies the loaded module classes before collecting results.

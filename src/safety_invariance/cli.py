@@ -12,6 +12,7 @@ from safety_invariance.diagnostics import write_diagnostic_report
 from safety_invariance.evaluation import load_score_bundle, with_retention, write_score_bundle
 from safety_invariance.external import run_agentdojo, run_toolsandbox
 from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
+from safety_invariance.mechanistic import analyze_mechanistic_divergence
 from safety_invariance.preflight import run_preflight
 from safety_invariance.reporting import write_markdown_report
 from safety_invariance.rescoring import rescore_run_dirs
@@ -20,6 +21,12 @@ from safety_invariance.schemas import (
     ModelSpec,
     RunConfig,
     TransformSpec,
+)
+from safety_invariance.selective_precision import (
+    analyze_selective_calibration,
+    load_selective_precision_study,
+    write_selective_calibration_matrix,
+    write_selective_precision_report,
 )
 
 
@@ -104,6 +111,47 @@ def build_parser() -> argparse.ArgumentParser:
     calibrate_parser.add_argument("--out", required=True)
     calibrate_parser.add_argument("--max-modules", type=int, default=4)
     calibrate_parser.set_defaults(func=cmd_calibrate_selective)
+
+    selective_plan_parser = subparsers.add_parser(
+        "selective-plan",
+        help="Generate the single-block causal calibration matrix for a selective-precision study",
+    )
+    selective_plan_parser.add_argument("--study", required=True, help="Selective-precision study JSON/YAML")
+    selective_plan_parser.add_argument("--out", help="Override generated calibration matrix path")
+    selective_plan_parser.set_defaults(func=cmd_selective_plan)
+
+    selective_analyze_parser = subparsers.add_parser(
+        "selective-analyze",
+        help="Rank restored blocks and generate the held-out selective-precision matrix",
+    )
+    selective_analyze_parser.add_argument("--study", required=True, help="Selective-precision study JSON/YAML")
+    selective_analyze_parser.add_argument("--run-root", help="Override calibration run root")
+    selective_analyze_parser.add_argument("--out", help="Override selection artifact path")
+    selective_analyze_parser.add_argument(
+        "--evaluation-matrix-out",
+        help="Override generated held-out evaluation matrix path",
+    )
+    selective_analyze_parser.set_defaults(func=cmd_selective_analyze)
+
+    selective_report_parser = subparsers.add_parser(
+        "selective-report",
+        help="Generate paired held-out statistics for a selective-precision study",
+    )
+    selective_report_parser.add_argument("--study", required=True, help="Selective-precision study JSON/YAML")
+    selective_report_parser.add_argument("--run-root", help="Override held-out evaluation run root")
+    selective_report_parser.add_argument("--out", help="Override Markdown report path")
+    selective_report_parser.add_argument("--bootstrap-samples", type=int, default=5000)
+    selective_report_parser.set_defaults(func=cmd_selective_report)
+
+    mechanism_parser = subparsers.add_parser(
+        "mechanistic-analyze",
+        help="Compare FP16 and quantized hidden states, logits, and safety action margins",
+    )
+    mechanism_parser.add_argument("--study", required=True, help="Selective-precision study JSON/YAML")
+    mechanism_parser.add_argument("--split", choices=("calibration", "evaluation"), default="calibration")
+    mechanism_parser.add_argument("--out", required=True, help="Output analysis JSON")
+    mechanism_parser.add_argument("--selection-artifact", help="Override causal selection artifact")
+    mechanism_parser.set_defaults(func=cmd_mechanistic_analyze)
 
     dojo_parser = subparsers.add_parser("run-agentdojo", help="Run AgentDojo's native benchmark script")
     dojo_parser.add_argument("--model", required=True, help="AgentDojo model registry id")
@@ -227,6 +275,80 @@ def cmd_calibrate_selective(args: argparse.Namespace) -> int:
         max_modules=args.max_modules,
     )
     print(json.dumps({"out": args.out, "selected_modules": payload["selected_modules"]}, sort_keys=True))
+    return 0
+
+
+def cmd_selective_plan(args: argparse.Namespace) -> int:
+    study = load_selective_precision_study(args.study)
+    output = args.out or f"configs/generated/{study.name}_calibration_matrix.json"
+    path = write_selective_calibration_matrix(study, output)
+    print(
+        json.dumps(
+            {
+                "study": study.name,
+                "matrix_path": str(path),
+                "run_count": len(study.blocks) + 2,
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def cmd_selective_analyze(args: argparse.Namespace) -> int:
+    study = load_selective_precision_study(args.study)
+    result = analyze_selective_calibration(
+        study,
+        run_root=args.run_root,
+        out=args.out,
+        evaluation_matrix_out=args.evaluation_matrix_out,
+    )
+    print(
+        json.dumps(
+            {
+                "study": study.name,
+                "baseline_regression_count": result["baseline_regression_count"],
+                "calibration_artifact_path": result["calibration_artifact_path"],
+                "evaluation_matrix_path": result["evaluation_matrix_path"],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def cmd_selective_report(args: argparse.Namespace) -> int:
+    study = load_selective_precision_study(args.study)
+    path = write_selective_precision_report(
+        study,
+        run_root=args.run_root,
+        out=args.out,
+        bootstrap_samples=args.bootstrap_samples,
+    )
+    print(str(path))
+    return 0
+
+
+def cmd_mechanistic_analyze(args: argparse.Namespace) -> int:
+    study = load_selective_precision_study(args.study)
+    result = analyze_mechanistic_divergence(
+        study,
+        split=args.split,
+        out=args.out,
+        selection_artifact=args.selection_artifact,
+    )
+    print(
+        json.dumps(
+            {
+                "study": study.name,
+                "split": args.split,
+                "out": args.out,
+                "task_count": result["task_count"],
+                "causal_score_correlation": result["causal_score_correlation"],
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 

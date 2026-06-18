@@ -189,7 +189,72 @@ Use `configs/judge_models_open_guard.json` for the planned safety-evaluation jud
 
 Do not treat these as target models. They are for labeling outputs and checking that safety conclusions are not caused by one judge.
 
-## 7. Selective Safety-Preserving Precision
+## 7. Causal Selective Safety-Preserving Precision
+
+The main selective-precision pilot uses disjoint calibration and evaluation suites. It does not infer layer importance from output failure categories. Instead, it restores one quantized transformer block at a time and measures which interventions recover baseline-safe failures.
+
+Generate and inspect the 38-run calibration matrix:
+
+```bash
+si selective-plan \
+  --study configs/qwen3b_nf4_selective_precision_study_24gb.json
+
+si preflight \
+  --matrix configs/generated/qwen25_3b_nf4_selective_precision_24gb_calibration_matrix.json
+
+si collect \
+  --matrix configs/generated/qwen25_3b_nf4_selective_precision_24gb_calibration_matrix.json \
+  --dry-run
+
+si collect \
+  --matrix configs/generated/qwen25_3b_nf4_selective_precision_24gb_calibration_matrix.json
+```
+
+Rank blocks by net safety recovery per added GiB and generate the held-out matrix:
+
+```bash
+si selective-analyze \
+  --study configs/qwen3b_nf4_selective_precision_study_24gb.json
+
+si preflight \
+  --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json
+
+si collect \
+  --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json \
+  --dry-run
+
+si collect \
+  --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json
+```
+
+The held-out matrix evaluates 5%, 10%, 20%, and 30% high-precision budgets against:
+
+- causal safety-selected blocks
+- utility-selected blocks
+- first and last blocks
+- ten deterministic random controls per budget
+- reverse interventions that quantize only the selected safety-sensitive blocks
+- full NF4 and FP16 endpoints
+
+Generate paired bootstrap intervals, exact McNemar tests, recovery counts, and deployment measurements:
+
+```bash
+si selective-report \
+  --study configs/qwen3b_nf4_selective_precision_study_24gb.json
+```
+
+Probe FP16/NF4 hidden-state divergence, next-token distribution divergence, safety-action margins, and correlation with causal recovery:
+
+```bash
+si mechanistic-analyze \
+  --study configs/qwen3b_nf4_selective_precision_study_24gb.json \
+  --split calibration \
+  --out reports/qwen3b_nf4_mechanistic_calibration.json
+```
+
+The model loader records parameter cost, model footprint, and peak CUDA allocation in each manifest. It aborts when a requested high-precision block does not exist or still contains bitsandbytes quantized linear modules.
+
+### Legacy Trace-Heuristic Calibration
 
 After collecting a baseline and transformed run:
 
@@ -201,13 +266,13 @@ si calibrate-selective \
   --max-modules 4
 ```
 
-The output contains:
+The legacy output contains:
 
 - divergence counts by safety failure kind
 - selected high-precision module hints
 - a transform block to copy into a collection matrix
 
-For int8, selected modules are passed to the bitsandbytes skip-module path where supported. For 4-bit, support depends on the installed `transformers` and `bitsandbytes` backend.
+Use this legacy command only to reproduce earlier artifacts. It maps failure categories to fixed module hints and is not evidence for a mechanistic or causal claim.
 
 ## 8. Safety-Triggered Escalation
 
