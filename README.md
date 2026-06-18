@@ -56,20 +56,21 @@ Each run directory contains:
 
 ## Selective-Precision Pilot
 
-The Qwen2.5-3B/NF4 pilot first measures the causal effect of restoring each transformer block, then evaluates safety-ranked blocks against utility-ranked, first/last, repeated random, and reverse controls on disjoint tasks:
+The Qwen2.5-3B/NF4 pilot restores each transformer block independently and measures how much it recovers FP16 preferred-versus-dispreferred completion margins. The selector subtracts utility-margin damage, then evaluates the ranking against utility-ranked, first/last, repeated random, and reverse controls on disjoint behavioral tasks:
 
 ```bash
 si selective-plan --study configs/qwen3b_nf4_selective_precision_study_24gb.json
 si collect --matrix configs/generated/qwen25_3b_nf4_selective_precision_24gb_calibration_matrix.json
+si selective-margin-collect --study configs/qwen3b_nf4_selective_precision_study_24gb.json
 si selective-analyze --study configs/qwen3b_nf4_selective_precision_study_24gb.json
-si collect --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json
+si collect --matrix configs/generated/qwen3b_nf4_margin_evaluation_matrix.json
 si selective-report --study configs/qwen3b_nf4_selective_precision_study_24gb.json
 si mechanistic-analyze \
   --study configs/qwen3b_nf4_selective_precision_study_24gb.json \
   --out reports/qwen3b_nf4_mechanistic_calibration.json
 ```
 
-For NF4, the loader initializes the complete quantized model first and then replaces selected blocks from a CPU FP16 reference checkpoint. It fails the run if a selected block is missing, remains quantized, or causes an unselected block to remain at high precision.
+Margin collection checkpoints its artifact after every transform and resumes by default. For NF4, the loader initializes the complete quantized model first and then replaces selected blocks from a CPU FP16 reference checkpoint. It fails the run if a selected block is missing, remains quantized, or causes an unselected block to remain at high precision.
 
 ## Scope
 

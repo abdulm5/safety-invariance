@@ -191,7 +191,7 @@ Do not treat these as target models. They are for labeling outputs and checking 
 
 ## 7. Causal Selective Safety-Preserving Precision
 
-The main selective-precision pilot uses disjoint calibration and evaluation suites. It does not infer layer importance from output failure categories. Instead, it restores one quantized transformer block at a time and measures which interventions recover baseline-safe failures.
+The main selective-precision pilot uses disjoint calibration and evaluation suites. Binary pass/fail flips are too sparse for layer selection. Instead, each calibration task defines a preferred safe/correct completion and a dispreferred unsafe/incorrect completion. The selector restores one quantized block at a time, measures recovery of the FP16 preference margin on baseline-safe tasks, and subtracts utility-margin damage.
 
 Generate and inspect the 38-run calibration matrix:
 
@@ -210,33 +210,40 @@ si collect \
   --matrix configs/generated/qwen25_3b_nf4_selective_precision_24gb_calibration_matrix.json
 ```
 
-Rank blocks by net safety recovery per added GiB and generate the held-out matrix:
+Collect dense action margins for FP16, full NF4, and every single-block restoration. The artifact is written after every transform and resumes after interruption:
+
+```bash
+si selective-margin-collect \
+  --study configs/qwen3b_nf4_selective_precision_study_24gb.json
+```
+
+Rank blocks by action-margin recovery per added GiB and generate the held-out matrix:
 
 ```bash
 si selective-analyze \
   --study configs/qwen3b_nf4_selective_precision_study_24gb.json
 
 si preflight \
-  --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json
+  --matrix configs/generated/qwen3b_nf4_margin_evaluation_matrix.json
 
 si collect \
-  --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json \
+  --matrix configs/generated/qwen3b_nf4_margin_evaluation_matrix.json \
   --dry-run
 
 si collect \
-  --matrix configs/generated/qwen3b_nf4_selective_evaluation_matrix.json
+  --matrix configs/generated/qwen3b_nf4_margin_evaluation_matrix.json
 ```
 
 The held-out matrix evaluates 5%, 10%, 20%, and 30% high-precision budgets against:
 
-- causal safety-selected blocks
-- utility-selected blocks
+- action-margin safety-selected blocks
+- utility-margin-selected blocks
 - first and last blocks
 - ten deterministic random controls per budget
 - reverse interventions that quantize only the selected safety-sensitive blocks
 - full NF4 and FP16 endpoints
 
-Generate paired bootstrap intervals, exact McNemar tests, recovery counts, and deployment measurements:
+Generate paired bootstrap intervals, exact McNemar tests, recovery counts, deployment measurements, and direct selected-versus-random summaries:
 
 ```bash
 si selective-report \
