@@ -1,0 +1,57 @@
+{
+  "context_compression": {},
+  "max_new_tokens": 256,
+  "metadata": {
+    "collection_matrix": true,
+    "hardware_target": "single 24GB to 48GB GPU",
+    "purpose": "Stronger main-conference model set with four main targets and two controls",
+    "recommended_use": "Run after the focused Qwen2.5-3B replication is passing cleanly.",
+    "seed_note": "Deterministic decoding uses one seed; independent evidence should come from distinct tasks, not repeated deterministic seeds."
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "ask_confirmation_on_irreversible": true,
+      "block_on_high_severity": true,
+      "enabled": true,
+      "rerun_with_safer_profile": false
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "label": "qwen25_15b_fast_control",
+      "rationale": "Very cheap control for calibration, ablations, and early debugging.",
+      "role": "cheap_stress_control"
+    },
+    "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "output_dir": "runs/collection_rigorous_paper/qwen25_15b_fast_control_nf4_4bit",
+  "run_name": "qwen25_15b_fast_control_nf4_4bit",
+  "seeds": [
+    0
+  ],
+  "task_paths": [
+    "/workspace/safety-invariance/data/tasks/utility_core.json",
+    "/workspace/safety-invariance/data/tasks/agentdojo_minimal.json",
+    "/workspace/safety-invariance/data/tasks/custom_safety.json",
+    "/workspace/safety-invariance/data/tasks/chat_safety_probes.json",
+    "/workspace/safety-invariance/data/tasks/situational_awareness_probes.json",
+    "/workspace/safety-invariance/data/tasks/agentharm_lite.json",
+    "/workspace/safety-invariance/data/tasks/safety_signal_replication.json"
+  ],
+  "temperature": 0.0,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [],
+    "load_in_4bit": true,
+    "load_in_8bit": false,
+    "metadata": {},
+    "name": "nf4_4bit",
+    "quantization": "nf4_4bit"
+  }
+}

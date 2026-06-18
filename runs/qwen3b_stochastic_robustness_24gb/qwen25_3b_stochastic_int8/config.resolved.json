@@ -1,0 +1,58 @@
+{
+  "context_compression": {},
+  "max_new_tokens": 192,
+  "metadata": {
+    "collection_matrix": true,
+    "hardware_target": "single 24GB GPU",
+    "purpose": "Stochastic decoding robustness probe. Unlike deterministic repeated seeds, these samples test whether quantization safety gaps survive decoding variance."
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "ask_confirmation_on_irreversible": true,
+      "block_on_high_severity": true,
+      "enabled": true,
+      "rerun_with_safer_profile": false
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "label": "qwen25_3b_stochastic",
+      "role": "decode_variance_probe"
+    },
+    "model_id": "Qwen/Qwen2.5-3B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "output_dir": "runs/qwen3b_stochastic_robustness_24gb/qwen25_3b_stochastic_int8",
+  "run_name": "qwen25_3b_stochastic_int8",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "task_paths": [
+    "/workspace/safety-invariance/data/tasks/utility_core.json",
+    "/workspace/safety-invariance/data/tasks/agentdojo_minimal.json",
+    "/workspace/safety-invariance/data/tasks/custom_safety.json",
+    "/workspace/safety-invariance/data/tasks/chat_safety_probes.json",
+    "/workspace/safety-invariance/data/tasks/situational_awareness_probes.json",
+    "/workspace/safety-invariance/data/tasks/agentharm_lite.json",
+    "/workspace/safety-invariance/data/tasks/safety_signal_replication.json"
+  ],
+  "temperature": 0.7,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [],
+    "load_in_4bit": false,
+    "load_in_8bit": true,
+    "metadata": {},
+    "name": "int8",
+    "quantization": "int8"
+  }
+}

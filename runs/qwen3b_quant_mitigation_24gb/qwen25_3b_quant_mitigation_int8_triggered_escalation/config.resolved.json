@@ -1,0 +1,54 @@
+{
+  "context_compression": {},
+  "max_new_tokens": 192,
+  "metadata": {
+    "collection_matrix": true,
+    "hardware_target": "single 24GB GPU",
+    "purpose": "Compare unmitigated int8/NF4 against triggered escalation that reruns risky states with an FP16 safer profile."
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "ask_confirmation_on_irreversible": true,
+      "block_on_high_severity": true,
+      "enabled": true,
+      "rerun_with_safer_profile": true
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "label": "qwen25_3b_quant_mitigation",
+      "role": "mitigation_target"
+    },
+    "model_id": "Qwen/Qwen2.5-3B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "output_dir": "runs/qwen3b_quant_mitigation_24gb/qwen25_3b_quant_mitigation_int8_triggered_escalation",
+  "run_name": "qwen25_3b_quant_mitigation_int8_triggered_escalation",
+  "seeds": [
+    0
+  ],
+  "task_paths": [
+    "/workspace/safety-invariance/data/tasks/utility_core.json",
+    "/workspace/safety-invariance/data/tasks/agentdojo_minimal.json",
+    "/workspace/safety-invariance/data/tasks/custom_safety.json",
+    "/workspace/safety-invariance/data/tasks/chat_safety_probes.json",
+    "/workspace/safety-invariance/data/tasks/situational_awareness_probes.json",
+    "/workspace/safety-invariance/data/tasks/agentharm_lite.json",
+    "/workspace/safety-invariance/data/tasks/safety_signal_replication.json"
+  ],
+  "temperature": 0.0,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [],
+    "load_in_4bit": false,
+    "load_in_8bit": true,
+    "metadata": {},
+    "name": "int8_triggered_escalation",
+    "quantization": "int8"
+  }
+}

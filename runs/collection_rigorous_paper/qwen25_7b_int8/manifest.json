@@ -1,0 +1,71 @@
+{
+  "context_compression": {},
+  "environment": {
+    "gpu": {
+      "available": true,
+      "device_count": 1,
+      "devices": [
+        {
+          "index": 0,
+          "name": "NVIDIA GeForce RTX 4090",
+          "total_memory_gb": 47.37
+        }
+      ]
+    },
+    "packages": {
+      "accelerate": "1.14.0",
+      "bitsandbytes": "0.49.2",
+      "safety-invariance": "0.1.0",
+      "torch": "2.4.1+cu124",
+      "transformers": "5.12.1"
+    },
+    "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.35",
+    "python": "3.11.10"
+  },
+  "max_new_tokens": 256,
+  "metadata": {
+    "collection_matrix": true,
+    "hardware_target": "single 24GB to 48GB GPU",
+    "purpose": "Stronger main-conference model set with four main targets and two controls",
+    "recommended_use": "Run after the focused Qwen2.5-3B replication is passing cleanly.",
+    "seed_note": "Deterministic decoding uses one seed; independent evidence should come from distinct tasks, not repeated deterministic seeds."
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "ask_confirmation_on_irreversible": true,
+      "block_on_high_severity": true,
+      "enabled": true,
+      "rerun_with_safer_profile": false
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "label": "qwen25_7b",
+      "rationale": "Primary model; strong open-weight instruction model with permissive license.",
+      "role": "main_target"
+    },
+    "model_id": "Qwen/Qwen2.5-7B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "run_name": "qwen25_7b_int8",
+  "seeds": [
+    0
+  ],
+  "task_count": 36,
+  "task_suite": "utility_core_v1+agentdojo_minimal_v1+custom_safety_v1+chat_safety_v1+situational_awareness_v1+agentharm_lite_v1+safety_signal_replication_v1",
+  "temperature": 0.0,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [],
+    "load_in_4bit": false,
+    "load_in_8bit": true,
+    "metadata": {},
+    "name": "int8",
+    "quantization": "int8"
+  }
+}
