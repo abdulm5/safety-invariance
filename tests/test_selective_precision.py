@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 import tempfile
 import types
@@ -9,14 +10,17 @@ from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
-from safety_invariance.evaluation import write_score_bundle
+from safety_invariance.agent import run_task
+from safety_invariance.evaluation import score_trace, write_score_bundle
 from safety_invariance.matrix import run_collection_matrix
-from safety_invariance.modeling import HFModelClient
+from safety_invariance.modeling import HFModelClient, MockModelClient
 from safety_invariance.margin_calibration import collect_action_margins
-from safety_invariance.schemas import ScoreBundle, TransformSpec
+from safety_invariance.schemas import ModelSpec, ScoreBundle, TransformSpec
 from safety_invariance.selective_precision import (
     analyze_selective_calibration,
     apply_action_margin_scores,
+    bootstrap_selected_minus_random_mean,
+    empirical_randomization_p,
     exact_mcnemar_p,
     holm_bonferroni,
     load_selective_precision_study,
@@ -26,7 +30,9 @@ from safety_invariance.selective_precision import (
     write_selective_precision_report,
     safety_margin_recovery,
     summarize_random_controls,
+    write_selective_evaluation_matrix,
 )
+from safety_invariance.tasks import load_task_file, validate_tasks
 
 
 class SelectivePrecisionTests(unittest.TestCase):
@@ -83,6 +89,75 @@ class SelectivePrecisionTests(unittest.TestCase):
         self.assertEqual(len(matrix["transforms"]), 38)
         self.assertEqual(matrix["transforms"][2]["keep_modules_high_precision"], ["model.layers.0"])
         self.assertFalse(matrix["mitigation"]["triggered_escalation"]["enabled"])
+
+    def test_expanded_study_inherits_probes_and_powers_heldout_design(self) -> None:
+        study = load_selective_precision_study(
+            "configs/qwen3b_nf4_selective_precision_expanded_study_24gb.json"
+        )
+        self.assertEqual(study.random_controls, 100)
+        self.assertEqual(len(study.action_probes), 23)
+        self.assertEqual(len(study.evaluation_task_paths), 7)
+        self.assertTrue(
+            any(
+                path.endswith("selective_precision_safety_heldout_expanded.json")
+                for path in study.evaluation_task_paths
+            )
+        )
+        _, expanded_tasks = load_task_file(
+            "data/tasks/selective_precision_safety_heldout_expanded.json"
+        )
+        self.assertEqual(len(expanded_tasks), 48)
+        self.assertEqual(validate_tasks(expanded_tasks), [])
+
+        selections = {}
+        for budget in study.budgets:
+            count = max(1, math.ceil(budget * len(study.blocks)))
+            label = f"b{round(budget * 100):02d}"
+            selections[label] = {
+                "budget_fraction": count / len(study.blocks),
+                "block_count": count,
+                "safety_selected": list(study.blocks[:count]),
+                "utility_selected": list(study.blocks[-count:]),
+                "first_blocks": list(study.blocks[:count]),
+                "last_blocks": list(study.blocks[-count:]),
+            }
+        with tempfile.TemporaryDirectory() as temp:
+            matrix_path = write_selective_evaluation_matrix(
+                study,
+                {"selections": selections},
+                Path(temp) / "expanded_matrix.json",
+            )
+            matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+        self.assertEqual(len(matrix["transforms"]), 422)
+        self.assertEqual(
+            sum(
+                transform.get("metadata", {}).get("selection_strategy") == "random_blocks"
+                for transform in matrix["transforms"]
+            ),
+            400,
+        )
+
+    def test_expanded_heldout_tasks_separate_safe_and_drifted_mock_profiles(self) -> None:
+        _, tasks = load_task_file(
+            "data/tasks/selective_precision_safety_heldout_expanded.json"
+        )
+        for profile, expected_safety in (("safe", True), ("drifted", False)):
+            model = MockModelClient(
+                ModelSpec(metadata={"mock_profile": profile}),
+                TransformSpec(name=profile),
+            )
+            observed = []
+            for task in tasks:
+                trace = run_task(
+                    task,
+                    model,
+                    max_new_tokens=64,
+                    temperature=0.0,
+                    seed=0,
+                )
+                _, safety_success, _ = score_trace(task, trace)
+                observed.append(safety_success)
+            self.assertEqual(observed, [expected_safety] * len(tasks))
 
     def test_action_margin_recovery_scores_dense_interventions(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -304,6 +379,47 @@ class SelectivePrecisionTests(unittest.TestCase):
                 strategy="causal_safety_recovery",
                 budget=0.25,
             )
+            random_0 = self._bundle(
+                "selective_random_b25_r00",
+                [False, False, True, True],
+                [True, True, True, True],
+            )
+            random_1 = self._bundle(
+                "selective_random_b25_r01",
+                [True, True, True, True],
+                [True, True, True, True],
+            )
+            for random_bundle in (random_0, random_1):
+                self._write_run(
+                    run_root,
+                    random_bundle,
+                    role="heldout_control",
+                    strategy="random_blocks",
+                    budget=0.25,
+                )
+            stale = self._bundle("stale_binary_variant", [False] * 4, [False] * 4)
+            self._write_run(
+                run_root,
+                stale,
+                role="heldout_evaluation",
+                strategy="causal_safety_recovery",
+                budget=0.25,
+            )
+            Path(study.evaluation_matrix_path).write_text(
+                json.dumps(
+                    {
+                        "metadata": {"selective_precision_study": study.name},
+                        "transforms": [
+                            {"name": "fp16"},
+                            {"name": "nf4_4bit"},
+                            {"name": "selective"},
+                            {"name": "selective_random_b25_r00"},
+                            {"name": "selective_random_b25_r01"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
             report = write_selective_precision_report(
                 study,
                 run_root=run_root,
@@ -313,7 +429,33 @@ class SelectivePrecisionTests(unittest.TestCase):
             text = report.read_text(encoding="utf-8")
             self.assertIn("Selective Precision Held-Out Evaluation", text)
             self.assertIn("causal_safety_recovery", text)
+            self.assertIn("Safety Selection Versus Random Controls", text)
+            self.assertIn("net regression reduction", text)
+            self.assertIn("Excluded 1 stale completed transform", text)
+            self.assertNotIn("stale_binary_variant", text)
+            self.assertNotIn("selective_random_b25_r00", text)
             self.assertTrue(report.with_suffix(".json").exists())
+            payload = json.loads(report.with_suffix(".json").read_text(encoding="utf-8"))
+            self.assertEqual(payload["excluded_transforms"], ["stale_binary_variant"])
+            self.assertEqual(
+                {row["transform"] for row in payload["rows"]},
+                {
+                    "nf4_4bit",
+                    "selective",
+                    "selective_random_b25_r00",
+                    "selective_random_b25_r01",
+                },
+            )
+            self.assertEqual(len(payload["random_control_summary"]), 1)
+            rows_by_transform = {row["transform"]: row for row in payload["rows"]}
+            self.assertIsNotNone(
+                rows_by_transform["selective"]["mcnemar_p_holm_vs_quantized"]
+            )
+            self.assertIsNone(
+                rows_by_transform["selective_random_b25_r00"][
+                    "mcnemar_p_holm_vs_quantized"
+                ]
+            )
 
     def test_random_control_summary_compares_equal_budgets(self) -> None:
         rows = [
@@ -323,6 +465,7 @@ class SelectivePrecisionTests(unittest.TestCase):
                 "budget": 0.1,
                 "safety": 0.8,
                 "utility": 0.9,
+                "net_safety_regression_reduction": 2,
             },
             {
                 "transform": "random_0",
@@ -330,6 +473,7 @@ class SelectivePrecisionTests(unittest.TestCase):
                 "budget": 0.1,
                 "safety": 0.6,
                 "utility": 0.8,
+                "net_safety_regression_reduction": 0,
             },
             {
                 "transform": "random_1",
@@ -337,6 +481,7 @@ class SelectivePrecisionTests(unittest.TestCase):
                 "budget": 0.1,
                 "safety": 0.7,
                 "utility": 1.0,
+                "net_safety_regression_reduction": 1,
             },
         ]
         summary = summarize_random_controls(rows)
@@ -344,6 +489,27 @@ class SelectivePrecisionTests(unittest.TestCase):
         self.assertAlmostEqual(summary[0]["random_mean_safety"], 0.65)
         self.assertAlmostEqual(summary[0]["selected_minus_random_mean_safety"], 0.15)
         self.assertEqual(summary[0]["selected_safety_percentile"], 1.0)
+        self.assertEqual(summary[0]["selected_net_reduction_rank"], 1)
+        self.assertAlmostEqual(
+            summary[0]["selected_minus_random_mean_net_safety_regression_reduction"],
+            1.5,
+        )
+        self.assertAlmostEqual(
+            summary[0]["empirical_randomization_p_one_sided_net_regression_reduction"],
+            1 / 3,
+        )
+        self.assertAlmostEqual(
+            summary[0]["empirical_randomization_p_holm_net_regression_reduction"],
+            1 / 3,
+        )
+        self.assertAlmostEqual(empirical_randomization_p(0.8, [0.6, 0.7]), 1 / 3)
+        interval = bootstrap_selected_minus_random_mean(
+            0.8,
+            [0.6, 0.7],
+            samples=100,
+            seed=9,
+        )
+        self.assertAlmostEqual(interval["estimate"], 0.15)
 
     def test_mock_study_runs_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

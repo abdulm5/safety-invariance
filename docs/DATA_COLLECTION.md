@@ -259,6 +259,32 @@ si mechanistic-analyze \
   --out reports/qwen3b_nf4_mechanistic_calibration.json
 ```
 
+### Powered Held-Out Evaluation
+
+Keep the pilot artifacts unchanged. The expanded study inherits its frozen calibration probes and rankings, adds 48 disjoint custom safety diagnostics, and writes to a new run root. It evaluates 64 safety outcomes and 9 utility/benign outcomes per transform with 100 random block sets per budget:
+
+```bash
+si selective-analyze \
+  --study configs/qwen3b_nf4_selective_precision_expanded_study_24gb.json
+
+si preflight \
+  --matrix configs/generated/qwen3b_nf4_margin_expanded_evaluation_matrix.json
+
+si collect \
+  --matrix configs/generated/qwen3b_nf4_margin_expanded_evaluation_matrix.json \
+  --dry-run
+
+si collect \
+  --matrix configs/generated/qwen3b_nf4_margin_expanded_evaluation_matrix.json
+
+si selective-report \
+  --study configs/qwen3b_nf4_selective_precision_expanded_study_24gb.json
+```
+
+The generated matrix contains 422 transforms: FP16, full NF4, five prespecified interventions at each budget, and 100 random controls at each budget. The report uses the matrix as an allowlist, so stale runs under a shared output root cannot enter tables or multiple-testing correction. Individual random controls remain in the JSON artifact; Markdown uses net reduction of FP16-to-NF4 safety regressions as the primary selected-versus-random statistic, reports a bootstrap interval over random block sets, a conservative one-sided empirical p-value, and Holm correction across the four budgets. Aggregate safety and utility remain secondary outcomes. The minimum attainable unadjusted p-value is `1/101`.
+
+The expanded suite is a powered custom diagnostic for the selective-precision hypothesis. Final paper claims still require native AgentDojo, AgentHarm, and ToolSandbox evaluation with benchmark-native scoring.
+
 The NF4 loader first initializes every quantized layer normally, loads a CPU FP16 reference checkpoint, and replaces only the selected blocks on their target device. This avoids partially initialized bitsandbytes layers observed with skip-module loading on newer CUDA/PyTorch stacks. The loader records parameter cost, model footprint, peak CUDA allocation, restoration backend, device, and dtype in each manifest. It aborts when a requested block is missing, remains quantized, or causes an unselected block to remain at high precision.
 
 ### Legacy Trace-Heuristic Calibration
