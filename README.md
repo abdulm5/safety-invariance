@@ -72,6 +72,19 @@ si mechanistic-analyze \
 
 Margin collection checkpoints its artifact after every transform and resumes by default. For NF4, the loader initializes the complete quantized model first and then replaces selected blocks from a CPU FP16 reference checkpoint. It fails the run if a selected block is missing, remains quantized, or causes an unselected block to remain at high precision.
 
+After the pilot is backed up, generate the powered held-out study from the same frozen calibration artifacts:
+
+```bash
+si selective-analyze \
+  --study configs/qwen3b_nf4_selective_precision_expanded_study_24gb.json
+si collect \
+  --matrix configs/generated/qwen3b_nf4_margin_expanded_evaluation_matrix.json
+si selective-report \
+  --study configs/qwen3b_nf4_selective_precision_expanded_study_24gb.json
+```
+
+The expanded study has 64 held-out safety outcomes, 9 utility/benign outcomes, and 100 random block controls at each of four budgets. Reports whitelist transforms from the generated evaluation matrix, keep individual random controls in JSON, and test net reduction of FP16-to-NF4 safety regressions with conservative empirical p-values and Holm correction. These custom tasks improve power for the mechanism study but do not replace full external benchmark evaluation.
+
 ## Scope
 
 See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. The legacy bitsandbytes skip-module backend remains available by explicit transform metadata, but the verified post-load replacement backend is the default for NF4.

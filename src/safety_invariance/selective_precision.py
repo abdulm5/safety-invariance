@@ -43,7 +43,7 @@ class SelectivePrecisionStudy:
 
 def load_selective_precision_study(path: str | Path) -> SelectivePrecisionStudy:
     study_path = Path(path)
-    data = load_structured_file(study_path)
+    data = _load_study_data(study_path)
     block_data = dict(data.get("blocks", {}))
     explicit_blocks = block_data.get("names")
     if explicit_blocks:
@@ -136,6 +136,31 @@ def load_selective_precision_study(path: str | Path) -> SelectivePrecisionStudy:
         margin_epsilon=float(data.get("margin_epsilon", 0.05)),
         metadata=dict(data.get("metadata", {})),
     )
+
+
+def _load_study_data(path: Path, seen: set[Path] | None = None) -> JsonDict:
+    resolved = path.resolve()
+    visited = set(seen or ())
+    if resolved in visited:
+        chain = " -> ".join(str(item) for item in (*visited, resolved))
+        raise ValueError(f"Circular selective-precision study inheritance: {chain}")
+    visited.add(resolved)
+    data = dict(load_structured_file(path))
+    parent = data.pop("extends", None)
+    if parent is None:
+        return data
+    parent_path = resolve_relative_path(str(parent), path)
+    return _deep_merge(_load_study_data(Path(parent_path), visited), data)
+
+
+def _deep_merge(base: JsonDict, override: JsonDict) -> JsonDict:
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(dict(merged[key]), value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def selective_calibration_transforms(study: SelectivePrecisionStudy) -> tuple[JsonDict, ...]:
@@ -606,7 +631,16 @@ def write_selective_precision_report(
     bootstrap_samples: int = 5000,
 ) -> Path:
     root = Path(run_root or study.evaluation_output_root)
-    artifacts = _load_run_artifacts(root)
+    all_artifacts = _load_run_artifacts(root)
+    active_transforms = _active_evaluation_transforms(study)
+    excluded_transforms: list[str] = []
+    if active_transforms is None:
+        artifacts = all_artifacts
+    else:
+        artifacts = {
+            name: artifact for name, artifact in all_artifacts.items() if name in active_transforms
+        }
+        excluded_transforms = sorted(set(all_artifacts) - active_transforms)
     baseline = _require_bundle(artifacts, "fp16")[0]
     candidate_name = _candidate_transform_name(study)
     candidate = _require_bundle(artifacts, candidate_name)[0]
@@ -644,8 +678,12 @@ def write_selective_precision_report(
                 "safety_delta_ci": safety_ci,
                 "utility_delta_vs_quantized": bundle.utility_score - candidate.utility_score,
                 "utility_delta_ci": utility_ci,
+                "candidate_regression_count": paired["candidate_regression_count"],
                 "candidate_regressions_recovered": paired["candidate_regressions_recovered"],
                 "new_regressions_vs_baseline": paired["new_regressions_vs_baseline"],
+                "net_safety_regression_reduction": (
+                    paired["candidate_regression_count"] - paired["new_regressions_vs_baseline"]
+                ),
                 "safety_improvements_vs_baseline": paired["safety_improvements_vs_baseline"],
                 "any_safety_flip_vs_baseline": paired["any_safety_flip_vs_baseline"],
                 "safety_regressions_with_unchanged_utility": paired[
@@ -660,31 +698,57 @@ def write_selective_precision_report(
         )
 
     tested_indices = [
-        index for index, row in enumerate(rows) if row["transform"] != candidate_name
+        index
+        for index, row in enumerate(rows)
+        if row["transform"] != candidate_name and row["strategy"] != "random_blocks"
     ]
     adjusted = holm_bonferroni(
         [float(rows[index]["mcnemar_p_vs_quantized"]) for index in tested_indices]
     )
     for row in rows:
-        row["mcnemar_p_holm_vs_quantized"] = 1.0
+        row["mcnemar_p_holm_vs_quantized"] = None
     for index, adjusted_p in zip(tested_indices, adjusted, strict=True):
         rows[index]["mcnemar_p_holm_vs_quantized"] = adjusted_p
 
-    random_control_summary = summarize_random_controls(rows)
+    random_control_summary = summarize_random_controls(
+        rows,
+        bootstrap_samples=bootstrap_samples,
+        seed=study.random_seed + 2,
+    )
     report_path = Path(out or study.evaluation_report_path)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(
-        _render_selective_report(study, baseline, candidate, rows, random_control_summary),
+        _render_selective_report(
+            study,
+            baseline,
+            candidate,
+            rows,
+            random_control_summary,
+            excluded_transforms=excluded_transforms,
+            matrix_filter_applied=active_transforms is not None,
+        ),
         encoding="utf-8",
     )
     _write_json(
         report_path.with_suffix(".json"),
-        {"study": study.name, "rows": rows, "random_control_summary": random_control_summary},
+        {
+            "study": study.name,
+            "evaluation_matrix_path": study.evaluation_matrix_path,
+            "matrix_filter_applied": active_transforms is not None,
+            "excluded_transforms": excluded_transforms,
+            "rows": rows,
+            "random_control_summary": random_control_summary,
+        },
     )
     return report_path
 
 
-def summarize_random_controls(rows: list[JsonDict]) -> list[JsonDict]:
+def summarize_random_controls(
+    rows: list[JsonDict],
+    *,
+    bootstrap_samples: int = 5000,
+    seed: int = 2026,
+) -> list[JsonDict]:
     random_by_budget: dict[float, list[JsonDict]] = {}
     for row in rows:
         if row.get("strategy") != "random_blocks":
@@ -693,7 +757,7 @@ def summarize_random_controls(rows: list[JsonDict]) -> list[JsonDict]:
 
     summaries: list[JsonDict] = []
     selected_strategies = {"causal_safety_recovery", "action_margin_causal_recovery"}
-    for row in rows:
+    for summary_index, row in enumerate(rows):
         if row.get("strategy") not in selected_strategies:
             continue
         budget = float(row.get("budget", 0.0))
@@ -702,7 +766,27 @@ def summarize_random_controls(rows: list[JsonDict]) -> list[JsonDict]:
             continue
         random_safety = [float(control["safety"]) for control in controls]
         random_utility = [float(control["utility"]) for control in controls]
+        random_net_reduction = [
+            float(control["net_safety_regression_reduction"]) for control in controls
+        ]
         selected_safety = float(row["safety"])
+        selected_net_reduction = float(row["net_safety_regression_reduction"])
+        net_reduction_difference_ci = bootstrap_selected_minus_random_mean(
+            selected_net_reduction,
+            random_net_reduction,
+            samples=bootstrap_samples,
+            seed=seed + summary_index,
+        )
+        safety_difference_ci = bootstrap_selected_minus_random_mean(
+            selected_safety,
+            random_safety,
+            samples=bootstrap_samples,
+            seed=seed + len(rows) + summary_index,
+        )
+        randomization_p = empirical_randomization_p(
+            selected_net_reduction,
+            random_net_reduction,
+        )
         summaries.append(
             {
                 "transform": row["transform"],
@@ -713,15 +797,69 @@ def summarize_random_controls(rows: list[JsonDict]) -> list[JsonDict]:
                 "random_min_safety": min(random_safety),
                 "random_max_safety": max(random_safety),
                 "selected_minus_random_mean_safety": selected_safety - mean(random_safety),
+                "selected_minus_random_mean_safety_ci": safety_difference_ci,
+                "selected_net_safety_regression_reduction": selected_net_reduction,
+                "random_mean_net_safety_regression_reduction": mean(random_net_reduction),
+                "random_min_net_safety_regression_reduction": min(random_net_reduction),
+                "random_max_net_safety_regression_reduction": max(random_net_reduction),
+                "selected_minus_random_mean_net_safety_regression_reduction": (
+                    selected_net_reduction - mean(random_net_reduction)
+                ),
+                "selected_minus_random_mean_net_safety_regression_reduction_ci": (
+                    net_reduction_difference_ci
+                ),
                 "selected_utility": float(row["utility"]),
                 "random_mean_utility": mean(random_utility),
                 "selected_minus_random_mean_utility": float(row["utility"]) - mean(random_utility),
                 "selected_safety_percentile": sum(
                     value <= selected_safety for value in random_safety
                 ) / len(random_safety),
+                "selected_net_reduction_rank": 1 + sum(
+                    value > selected_net_reduction for value in random_net_reduction
+                ),
+                "empirical_randomization_p_one_sided_net_regression_reduction": randomization_p,
+                "empirical_p_resolution": 1 / (len(random_safety) + 1),
             }
         )
+    adjusted = holm_bonferroni(
+        [
+            float(summary["empirical_randomization_p_one_sided_net_regression_reduction"])
+            for summary in summaries
+        ]
+    )
+    for summary, adjusted_p in zip(summaries, adjusted, strict=True):
+        summary["empirical_randomization_p_holm_net_regression_reduction"] = adjusted_p
     return summaries
+
+
+def empirical_randomization_p(selected: float, random_values: list[float]) -> float:
+    """Conservative one-sided randomization p-value for selected > random."""
+    if not random_values:
+        raise ValueError("At least one random control is required.")
+    return (1 + sum(value >= selected for value in random_values)) / (len(random_values) + 1)
+
+
+def bootstrap_selected_minus_random_mean(
+    selected: float,
+    random_values: list[float],
+    *,
+    samples: int,
+    seed: int,
+) -> JsonDict:
+    if not random_values:
+        return {"estimate": None, "low": None, "high": None, "samples": 0}
+    randomizer = random.Random(seed)
+    draws = sorted(
+        selected
+        - mean(random_values[randomizer.randrange(len(random_values))] for _ in random_values)
+        for _ in range(max(samples, 1))
+    )
+    return {
+        "estimate": selected - mean(random_values),
+        "low": _quantile(draws, 0.025),
+        "high": _quantile(draws, 0.975),
+        "samples": max(samples, 1),
+    }
 
 
 def paired_behavior_metrics(
@@ -899,6 +1037,34 @@ def _load_run_artifacts(root: Path) -> dict[str, tuple[ScoreBundle, JsonDict]]:
     return artifacts
 
 
+def _active_evaluation_transforms(study: SelectivePrecisionStudy) -> set[str] | None:
+    matrix_path = Path(study.evaluation_matrix_path)
+    if not matrix_path.exists():
+        return None
+    matrix = load_structured_file(matrix_path)
+    metadata = dict(matrix.get("metadata", {}))
+    matrix_study = metadata.get("selective_precision_study")
+    if matrix_study is not None and str(matrix_study) != study.name:
+        raise ValueError(
+            f"Evaluation matrix {matrix_path} belongs to study {matrix_study!r}, "
+            f"not {study.name!r}."
+        )
+    transforms = matrix.get("transforms")
+    if not isinstance(transforms, list) or not transforms:
+        raise ValueError(f"Evaluation matrix has no transforms: {matrix_path}")
+    names = {
+        str(transform["name"])
+        for transform in transforms
+        if isinstance(transform, dict) and transform.get("name")
+    }
+    if "fp16" not in names or _candidate_transform_name(study) not in names:
+        raise ValueError(
+            f"Evaluation matrix {matrix_path} must include fp16 and "
+            f"{_candidate_transform_name(study)!r}."
+        )
+    return names
+
+
 def _require_bundle(
     artifacts: dict[str, tuple[ScoreBundle, JsonDict]],
     transform: str,
@@ -986,6 +1152,9 @@ def _render_selective_report(
     candidate: ScoreBundle,
     rows: list[JsonDict],
     random_control_summary: list[JsonDict],
+    *,
+    excluded_transforms: list[str],
+    matrix_filter_applied: bool,
 ) -> str:
     lines = [
         "# Selective Precision Held-Out Evaluation",
@@ -995,11 +1164,20 @@ def _render_selective_report(
         f"FP16 baseline utility/safety: {baseline.utility_score:.3f}/{baseline.safety_score:.3f}.",
         f"Fully quantized utility/safety: {candidate.utility_score:.3f}/{candidate.safety_score:.3f}.",
         "",
+        (
+            f"Results are restricted to transforms declared by `{study.evaluation_matrix_path}`. "
+            f"Excluded {len(excluded_transforms)} stale completed transform(s)."
+            if matrix_filter_applied
+            else "Warning: the evaluation matrix was unavailable, so completed runs were not filtered."
+        ),
+        "",
         "|transform|strategy|budget|utility|safety|safety delta|95% CI|recovered|"
-        "baseline regressions|p Holm|latency ms|tok/s|peak GiB|",
-        "|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|",
+        "FP16 regressions|net regression reduction|p Holm|latency ms|tok/s|peak GiB|",
+        "|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in rows:
+        if row["strategy"] == "random_blocks":
+            continue
         ci = row["safety_delta_ci"]
         ci_text = (
             "n/a"
@@ -1012,7 +1190,7 @@ def _render_selective_report(
         lines.append(
             (
                 "|{transform}|{strategy}|{budget:.2f}|{utility:.3f}|{safety:.3f}|"
-                "{delta:.3f}|{ci}|{recovered}|{regressions}|{p:.4f}|{latency}|"
+                "{delta:.3f}|{ci}|{recovered}|{regressions}|{net_reduction}|{p}|{latency}|"
                 "{throughput}|{peak_memory}|"
             ).format(
                 transform=row["transform"],
@@ -1024,7 +1202,12 @@ def _render_selective_report(
                 ci=ci_text,
                 recovered=row["candidate_regressions_recovered"],
                 regressions=row["new_regressions_vs_baseline"],
-                p=float(row["mcnemar_p_holm_vs_quantized"]),
+                net_reduction=row["net_safety_regression_reduction"],
+                p=(
+                    "n/a"
+                    if row["mcnemar_p_holm_vs_quantized"] is None
+                    else f"{float(row['mcnemar_p_holm_vs_quantized']):.4f}"
+                ),
                 latency="n/a" if latency is None else f"{float(latency):.1f}",
                 throughput="n/a" if throughput is None else f"{float(throughput):.1f}",
                 peak_memory="n/a" if peak_memory is None else f"{float(peak_memory) / (1024**3):.2f}",
@@ -1034,7 +1217,8 @@ def _render_selective_report(
         [
             "",
             "Intervals are paired task-level bootstrap intervals. Exact McNemar p-values compare each "
-            "intervention with the fully quantized candidate and use Holm correction across reported variants.",
+            "intervention with the fully quantized candidate and use Holm correction across active, "
+            "non-random variants. Individual random controls are retained in the JSON artifact.",
             "",
         ]
     )
@@ -1043,26 +1227,59 @@ def _render_selective_report(
             [
                 "## Safety Selection Versus Random Controls",
                 "",
-                "|transform|budget|selected safety|random mean|difference|percentile|"
+                "|transform|budget|selected net regression reduction|random mean|difference|"
+                "95% CI|rank|N|p empirical|p Holm|selected safety|random safety mean|"
                 "selected utility|random utility mean|",
-                "|---|---:|---:|---:|---:|---:|---:|---:|",
+                "|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
             ]
         )
         for summary in random_control_summary:
+            ci = summary["selected_minus_random_mean_net_safety_regression_reduction_ci"]
             lines.append(
-                "|{transform}|{budget:.2f}|{selected_safety:.3f}|{random_safety:.3f}|"
-                "{difference:.3f}|{percentile:.2f}|{selected_utility:.3f}|{random_utility:.3f}|".format(
+                "|{transform}|{budget:.2f}|{selected_net:.3f}|{random_net:.3f}|"
+                "{difference:.3f}|[{low:.3f}, {high:.3f}]|{rank}|{count}|{p:.4f}|"
+                "{p_holm:.4f}|{selected_safety:.3f}|{random_safety:.3f}|"
+                "{selected_utility:.3f}|{random_utility:.3f}|".format(
                     transform=summary["transform"],
                     budget=float(summary["budget"]),
+                    selected_net=float(summary["selected_net_safety_regression_reduction"]),
+                    random_net=float(summary["random_mean_net_safety_regression_reduction"]),
+                    difference=float(
+                        summary[
+                            "selected_minus_random_mean_net_safety_regression_reduction"
+                        ]
+                    ),
                     selected_safety=float(summary["selected_safety"]),
                     random_safety=float(summary["random_mean_safety"]),
-                    difference=float(summary["selected_minus_random_mean_safety"]),
-                    percentile=float(summary["selected_safety_percentile"]),
+                    low=float(ci["low"]),
+                    high=float(ci["high"]),
+                    rank=summary["selected_net_reduction_rank"],
+                    count=summary["random_control_count"],
+                    p=float(
+                        summary[
+                            "empirical_randomization_p_one_sided_net_regression_reduction"
+                        ]
+                    ),
+                    p_holm=float(
+                        summary[
+                            "empirical_randomization_p_holm_net_regression_reduction"
+                        ]
+                    ),
                     selected_utility=float(summary["selected_utility"]),
                     random_utility=float(summary["random_mean_utility"]),
                 )
             )
-        lines.append("")
+        lines.extend(
+            [
+                "",
+                "Net regression reduction is the fully quantized candidate's FP16-safe regressions "
+                "minus the intervention's FP16-safe regressions; it credits recovered regressions and "
+                "penalizes newly introduced ones. Empirical p-values test whether safety-selected blocks "
+                "outperform uniformly sampled block sets at the same budget. Ties count against the "
+                "selected method; Holm correction covers the prespecified precision budgets.",
+                "",
+            ]
+        )
     return "\n".join(lines)
 
 
