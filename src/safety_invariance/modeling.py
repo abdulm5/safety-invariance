@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import json
 import re
 from dataclasses import dataclass
@@ -154,12 +155,16 @@ class HFModelClient:
                 "HF model runs require optional GPU dependencies: pip install -e '.[gpu]'"
             ) from exc
         set_submodule_shimmed = ensure_torch_module_set_submodule(torch)
+        self.compatibility: dict[str, object] = {
+            "torch_set_submodule_shimmed": set_submodule_shimmed,
+        }
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
 
         model_id = self.transform.metadata.get("quantized_model_id", self.model.model_id)
         quantization_config = None
         dtype = self._torch_dtype(torch)
+        post_load_restore = False
         if self.transform.load_in_8bit or self.transform.quantization == "int8":
             skip_modules = self._backend_skip_modules(self.transform.keep_modules_high_precision)
             quantization_config = BitsAndBytesConfig(
@@ -167,10 +172,15 @@ class HFModelClient:
                 llm_int8_skip_modules=skip_modules or None,
             )
         elif self.transform.load_in_4bit or self.transform.quantization in {"nf4_4bit", "4bit"}:
+            post_load_restore = self._uses_post_load_restoration()
             quantization_config = self._bnb_4bit_config(
                 BitsAndBytesConfig,
                 torch,
-                skip_modules=self._backend_skip_modules(self.transform.keep_modules_high_precision),
+                skip_modules=(
+                    []
+                    if post_load_restore
+                    else self._backend_skip_modules(self.transform.keep_modules_high_precision)
+                ),
             )
         elif self.transform.quantization in {"gptq", "awq"}:
             if "quantized_model_id" not in self.transform.metadata:
@@ -197,7 +207,12 @@ class HFModelClient:
             quantization_config=quantization_config,
             trust_remote_code=self.model.trust_remote_code,
         )
-        self.compatibility: dict[str, bool] = {"torch_set_submodule_shimmed": set_submodule_shimmed}
+        if post_load_restore:
+            self._restore_modules_from_fp16_reference(
+                AutoModelForCausalLM,
+                torch,
+                dtype=dtype,
+            )
         if self.transform.quantization == "lora_merged":
             self.model_obj = self._merge_lora_adapter(self.model_obj)
         if self.transform.quantization == "pruned":
@@ -219,6 +234,74 @@ class HFModelClient:
         if skip_modules:
             kwargs["llm_int8_skip_modules"] = skip_modules
         return bits_and_bytes_config(**kwargs)
+
+    def _uses_post_load_restoration(self) -> bool:
+        if not self.transform.keep_modules_high_precision:
+            return False
+        requested = str(
+            self.transform.metadata.get("selective_precision_backend", "post_load_replacement")
+        )
+        if requested not in {"post_load_replacement", "skip_modules"}:
+            raise ValueError(
+                "transform.metadata.selective_precision_backend must be "
+                "'post_load_replacement' or 'skip_modules'."
+            )
+        self.compatibility["selective_precision_backend"] = requested
+        return requested == "post_load_replacement"
+
+    def _restore_modules_from_fp16_reference(
+        self,
+        auto_model_class,
+        torch_module,
+        *,
+        dtype,
+    ) -> None:
+        if self.transform.metadata.get("quantized_model_id"):
+            raise ValueError(
+                "Post-load selective restoration requires quantizing the original model checkpoint, "
+                "not metadata.quantized_model_id."
+            )
+        reference = auto_model_class.from_pretrained(
+            self.model.model_id,
+            revision=self.model.revision,
+            cache_dir=self.model.cache_dir,
+            device_map={"": "cpu"},
+            torch_dtype=dtype,
+            low_cpu_mem_usage=True,
+            trust_remote_code=self.model.trust_remote_code,
+        )
+        restored: list[dict[str, object]] = []
+        try:
+            for prefix in self.transform.keep_modules_high_precision:
+                try:
+                    old_module = self.model_obj.get_submodule(prefix)
+                    replacement = reference.get_submodule(prefix)
+                except AttributeError as exc:
+                    raise RuntimeError(
+                        f"Selective-precision module was not found in both model copies: {prefix}"
+                    ) from exc
+                try:
+                    target_device = next(old_module.parameters()).device
+                except StopIteration as exc:
+                    raise RuntimeError(
+                        f"Selective-precision module has no parameters: {prefix}"
+                    ) from exc
+                reference.set_submodule(prefix, torch_module.nn.Identity())
+                replacement.to(device=target_device, dtype=dtype)
+                self.model_obj.set_submodule(prefix, replacement)
+                restored.append(
+                    {
+                        "module": prefix,
+                        "device": str(target_device),
+                        "dtype": str(dtype),
+                    }
+                )
+        finally:
+            del reference
+            gc.collect()
+            if torch_module.cuda.is_available():
+                torch_module.cuda.empty_cache()
+        self.compatibility["restored_modules"] = restored
 
     def _backend_skip_modules(self, modules: tuple[str, ...]) -> list[str]:
         if not modules:

@@ -252,7 +252,7 @@ si mechanistic-analyze \
   --out reports/qwen3b_nf4_mechanistic_calibration.json
 ```
 
-The model loader records parameter cost, model footprint, and peak CUDA allocation in each manifest. It aborts when a requested high-precision block does not exist or still contains bitsandbytes quantized linear modules.
+The NF4 loader first initializes every quantized layer normally, loads a CPU FP16 reference checkpoint, and replaces only the selected blocks on their target device. This avoids partially initialized bitsandbytes layers observed with skip-module loading on newer CUDA/PyTorch stacks. The loader records parameter cost, model footprint, peak CUDA allocation, restoration backend, device, and dtype in each manifest. It aborts when a requested block is missing, remains quantized, or causes an unselected block to remain at high precision.
 
 ### Legacy Trace-Heuristic Calibration
 

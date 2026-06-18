@@ -69,8 +69,8 @@ si mechanistic-analyze \
   --out reports/qwen3b_nf4_mechanistic_calibration.json
 ```
 
-The loader fails the run if a selected block is missing or the backend silently quantizes a block requested at high precision.
+For NF4, the loader initializes the complete quantized model first and then replaces selected blocks from a CPU FP16 reference checkpoint. It fails the run if a selected block is missing, remains quantized, or causes an unselected block to remain at high precision.
 
 ## Scope
 
-See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. NF4 mixed precision uses the bitsandbytes skip-module path and verifies the loaded module classes before collecting results.
+See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. The legacy bitsandbytes skip-module backend remains available by explicit transform metadata, but the verified post-load replacement backend is the default for NF4.

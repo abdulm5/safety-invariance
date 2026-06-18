@@ -36,7 +36,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return int(args.func(args))
     except Exception as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        message = str(exc).strip() or exc.__class__.__name__
+        print(f"error: {message}", file=sys.stderr)
         return 1
 
 

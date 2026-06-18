@@ -11,7 +11,7 @@ from unittest.mock import patch
 from safety_invariance.evaluation import write_score_bundle
 from safety_invariance.matrix import run_collection_matrix
 from safety_invariance.modeling import HFModelClient
-from safety_invariance.schemas import ScoreBundle
+from safety_invariance.schemas import ScoreBundle, TransformSpec
 from safety_invariance.selective_precision import (
     analyze_selective_calibration,
     exact_mcnemar_p,
@@ -24,6 +24,33 @@ from safety_invariance.selective_precision import (
 
 
 class SelectivePrecisionTests(unittest.TestCase):
+    def test_nf4_selective_precision_uses_post_load_restoration(self) -> None:
+        client = object.__new__(HFModelClient)
+        client.transform = TransformSpec(
+            name="selective_nf4",
+            quantization="nf4_4bit",
+            load_in_4bit=True,
+            keep_modules_high_precision=("model.layers.1",),
+        )
+        client.compatibility = {}
+        self.assertTrue(client._uses_post_load_restoration())
+        self.assertEqual(
+            client.compatibility["selective_precision_backend"],
+            "post_load_replacement",
+        )
+
+    def test_nf4_selective_precision_can_request_legacy_skip_backend(self) -> None:
+        client = object.__new__(HFModelClient)
+        client.transform = TransformSpec(
+            name="selective_nf4",
+            quantization="nf4_4bit",
+            load_in_4bit=True,
+            keep_modules_high_precision=("model.layers.1",),
+            metadata={"selective_precision_backend": "skip_modules"},
+        )
+        client.compatibility = {}
+        self.assertFalse(client._uses_post_load_restoration())
+
     def test_transformers_5_skip_patterns_have_block_boundaries(self) -> None:
         client = object.__new__(HFModelClient)
         fake_transformers = types.ModuleType("transformers")

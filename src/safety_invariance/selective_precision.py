@@ -609,6 +609,7 @@ def _selective_transform(
     transform["metadata"] = {
         **dict(transform.get("metadata", {})),
         "selective_precision_requested": True,
+        "selective_precision_backend": "post_load_replacement",
         "selective_precision_role": role,
         "selection_strategy": selection_strategy,
         "high_precision_budget_fraction": budget,
