@@ -1,0 +1,1505 @@
+{
+  "max_new_tokens": 256,
+  "metadata": {
+    "calibration_and_evaluation_tasks_disjoint": true,
+    "hardware_target": "single 24GB GPU",
+    "purpose": "action-margin causal selective-precision pilot",
+    "selection_artifact": "configs/generated/qwen3b_nf4_margin_selection.json",
+    "selective_precision_phase": "heldout_evaluation",
+    "selective_precision_study": "qwen25_3b_nf4_selective_precision_24gb"
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": false
+    }
+  },
+  "models": [
+    {
+      "device_map": "auto",
+      "metadata": {
+        "label": "qwen25_3b_selective"
+      },
+      "model_id": "Qwen/Qwen2.5-3B-Instruct",
+      "provider": "hf",
+      "torch_dtype": "float16"
+    }
+  ],
+  "output_root": "runs/qwen3b_nf4_selective_evaluation_24gb",
+  "report_path": "reports/qwen3b_nf4_selective_margin_evaluation_24gb.md",
+  "seeds": [
+    0
+  ],
+  "task_paths": [
+    "data/tasks/selective_precision_utility_heldout.json",
+    "data/tasks/agentdojo_minimal.json",
+    "data/tasks/custom_safety.json",
+    "data/tasks/chat_safety_probes.json",
+    "data/tasks/situational_awareness_probes.json",
+    "data/tasks/agentharm_lite.json"
+  ],
+  "temperature": 0.0,
+  "transforms": [
+    {
+      "name": "fp16",
+      "quantization": "none"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "load_in_4bit": true,
+      "metadata": {
+        "selective_precision_role": "fully_quantized_candidate"
+      },
+      "name": "nf4_4bit",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.35",
+        "model.layers.0"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "selection_strategy": "action_margin_causal_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_evaluation"
+      },
+      "name": "selective_margin_safety_b05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.12",
+        "model.layers.17"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "selection_strategy": "utility_margin_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_margin_utility_b05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.1"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "selection_strategy": "first_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_first_b05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.34",
+        "model.layers.35"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "selection_strategy": "last_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_last_b05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.6",
+        "model.layers.7",
+        "model.layers.8",
+        "model.layers.9",
+        "model.layers.10",
+        "model.layers.11",
+        "model.layers.12",
+        "model.layers.13",
+        "model.layers.14",
+        "model.layers.15",
+        "model.layers.16",
+        "model.layers.17",
+        "model.layers.18",
+        "model.layers.19",
+        "model.layers.20",
+        "model.layers.21",
+        "model.layers.22",
+        "model.layers.23",
+        "model.layers.24",
+        "model.layers.25",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.28",
+        "model.layers.29",
+        "model.layers.30",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.33",
+        "model.layers.34"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.9444444444444444,
+        "selection_strategy": "quantize_only_safety_selected",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "reverse_causal_control"
+      },
+      "name": "quantize_only_margin_sensitive_b05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.15"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 0,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r00",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.28"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 1,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r01",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.14",
+        "model.layers.35"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 2,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r02",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.18",
+        "model.layers.6"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 3,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r03",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.20",
+        "model.layers.31"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 4,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r04",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.20",
+        "model.layers.7"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 5,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.26",
+        "model.layers.35"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 6,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r06",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.28",
+        "model.layers.31"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 7,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r07",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.32",
+        "model.layers.6"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 8,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r08",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.5",
+        "model.layers.7"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.05555555555555555,
+        "random_replicate": 9,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b05_r09",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.35",
+        "model.layers.0",
+        "model.layers.33",
+        "model.layers.17"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "selection_strategy": "action_margin_causal_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_evaluation"
+      },
+      "name": "selective_margin_safety_b10",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.12",
+        "model.layers.17",
+        "model.layers.10",
+        "model.layers.13"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "selection_strategy": "utility_margin_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_margin_utility_b10",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "selection_strategy": "first_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_first_b10",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.32",
+        "model.layers.33",
+        "model.layers.34",
+        "model.layers.35"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "selection_strategy": "last_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_last_b10",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.6",
+        "model.layers.7",
+        "model.layers.8",
+        "model.layers.9",
+        "model.layers.10",
+        "model.layers.11",
+        "model.layers.12",
+        "model.layers.13",
+        "model.layers.14",
+        "model.layers.15",
+        "model.layers.16",
+        "model.layers.18",
+        "model.layers.19",
+        "model.layers.20",
+        "model.layers.21",
+        "model.layers.22",
+        "model.layers.23",
+        "model.layers.24",
+        "model.layers.25",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.28",
+        "model.layers.29",
+        "model.layers.30",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.34"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.8888888888888888,
+        "selection_strategy": "quantize_only_safety_selected",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "reverse_causal_control"
+      },
+      "name": "quantize_only_margin_sensitive_b10",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.23",
+        "model.layers.27",
+        "model.layers.29"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 0,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r00",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.30",
+        "model.layers.32",
+        "model.layers.33"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 1,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r01",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.13",
+        "model.layers.16",
+        "model.layers.22",
+        "model.layers.25"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 2,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r02",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.14",
+        "model.layers.3",
+        "model.layers.33",
+        "model.layers.8"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 3,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r03",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.16",
+        "model.layers.25",
+        "model.layers.26",
+        "model.layers.33"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 4,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r04",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.18",
+        "model.layers.19",
+        "model.layers.29",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 5,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.21",
+        "model.layers.34",
+        "model.layers.35",
+        "model.layers.5"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 6,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r06",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.22",
+        "model.layers.24",
+        "model.layers.32",
+        "model.layers.4"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 7,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r07",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.25",
+        "model.layers.31",
+        "model.layers.35",
+        "model.layers.5"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 8,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r08",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.27",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.7"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.1111111111111111,
+        "random_replicate": 9,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b10_r09",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.35",
+        "model.layers.0",
+        "model.layers.33",
+        "model.layers.17",
+        "model.layers.34",
+        "model.layers.9",
+        "model.layers.32",
+        "model.layers.25"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "selection_strategy": "action_margin_causal_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_evaluation"
+      },
+      "name": "selective_margin_safety_b20",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.12",
+        "model.layers.17",
+        "model.layers.10",
+        "model.layers.13",
+        "model.layers.27",
+        "model.layers.31",
+        "model.layers.6",
+        "model.layers.35"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "selection_strategy": "utility_margin_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_margin_utility_b20",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.6",
+        "model.layers.7"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "selection_strategy": "first_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_first_b20",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.28",
+        "model.layers.29",
+        "model.layers.30",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.33",
+        "model.layers.34",
+        "model.layers.35"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "selection_strategy": "last_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_last_b20",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.6",
+        "model.layers.7",
+        "model.layers.8",
+        "model.layers.10",
+        "model.layers.11",
+        "model.layers.12",
+        "model.layers.13",
+        "model.layers.14",
+        "model.layers.15",
+        "model.layers.16",
+        "model.layers.18",
+        "model.layers.19",
+        "model.layers.20",
+        "model.layers.21",
+        "model.layers.22",
+        "model.layers.23",
+        "model.layers.24",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.28",
+        "model.layers.29",
+        "model.layers.30",
+        "model.layers.31"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.7777777777777778,
+        "selection_strategy": "quantize_only_safety_selected",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "reverse_causal_control"
+      },
+      "name": "quantize_only_margin_sensitive_b20",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.11",
+        "model.layers.2",
+        "model.layers.29",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.6",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 0,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r00",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.14",
+        "model.layers.18",
+        "model.layers.26",
+        "model.layers.28",
+        "model.layers.32",
+        "model.layers.5",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 1,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r01",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.12",
+        "model.layers.15",
+        "model.layers.19",
+        "model.layers.24",
+        "model.layers.34",
+        "model.layers.5",
+        "model.layers.7"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 2,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r02",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.11",
+        "model.layers.15",
+        "model.layers.16",
+        "model.layers.23",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.28",
+        "model.layers.32"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 3,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r03",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.12",
+        "model.layers.25",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.30",
+        "model.layers.32",
+        "model.layers.8",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 4,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r04",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.13",
+        "model.layers.16",
+        "model.layers.17",
+        "model.layers.25",
+        "model.layers.29",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.34"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 5,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.14",
+        "model.layers.18",
+        "model.layers.2",
+        "model.layers.20",
+        "model.layers.22",
+        "model.layers.29",
+        "model.layers.32",
+        "model.layers.6"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 6,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r06",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.16",
+        "model.layers.17",
+        "model.layers.21",
+        "model.layers.25",
+        "model.layers.29",
+        "model.layers.30",
+        "model.layers.7",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 7,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r07",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.17",
+        "model.layers.23",
+        "model.layers.27",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.33",
+        "model.layers.4",
+        "model.layers.6"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 8,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r08",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.27",
+        "model.layers.28",
+        "model.layers.30",
+        "model.layers.33",
+        "model.layers.34",
+        "model.layers.6",
+        "model.layers.7",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.2222222222222222,
+        "random_replicate": 9,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b20_r09",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.35",
+        "model.layers.0",
+        "model.layers.33",
+        "model.layers.17",
+        "model.layers.34",
+        "model.layers.9",
+        "model.layers.32",
+        "model.layers.25",
+        "model.layers.30",
+        "model.layers.28",
+        "model.layers.12"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "selection_strategy": "action_margin_causal_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_evaluation"
+      },
+      "name": "selective_margin_safety_b30",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.12",
+        "model.layers.17",
+        "model.layers.10",
+        "model.layers.13",
+        "model.layers.27",
+        "model.layers.31",
+        "model.layers.6",
+        "model.layers.35",
+        "model.layers.26",
+        "model.layers.33",
+        "model.layers.11"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "selection_strategy": "utility_margin_recovery",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_margin_utility_b30",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.6",
+        "model.layers.7",
+        "model.layers.8",
+        "model.layers.9",
+        "model.layers.10"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "selection_strategy": "first_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_first_b30",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.25",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.28",
+        "model.layers.29",
+        "model.layers.30",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.33",
+        "model.layers.34",
+        "model.layers.35"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "selection_strategy": "last_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_last_b30",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.2",
+        "model.layers.3",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.6",
+        "model.layers.7",
+        "model.layers.8",
+        "model.layers.10",
+        "model.layers.11",
+        "model.layers.13",
+        "model.layers.14",
+        "model.layers.15",
+        "model.layers.16",
+        "model.layers.18",
+        "model.layers.19",
+        "model.layers.20",
+        "model.layers.21",
+        "model.layers.22",
+        "model.layers.23",
+        "model.layers.24",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.29",
+        "model.layers.31"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.6944444444444444,
+        "selection_strategy": "quantize_only_safety_selected",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "reverse_causal_control"
+      },
+      "name": "quantize_only_margin_sensitive_b30",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.1",
+        "model.layers.11",
+        "model.layers.12",
+        "model.layers.2",
+        "model.layers.20",
+        "model.layers.24",
+        "model.layers.26",
+        "model.layers.28",
+        "model.layers.34",
+        "model.layers.6"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 0,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r00",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.0",
+        "model.layers.10",
+        "model.layers.15",
+        "model.layers.17",
+        "model.layers.18",
+        "model.layers.21",
+        "model.layers.22",
+        "model.layers.24",
+        "model.layers.28",
+        "model.layers.34",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 1,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r01",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.10",
+        "model.layers.14",
+        "model.layers.21",
+        "model.layers.22",
+        "model.layers.3",
+        "model.layers.30",
+        "model.layers.31",
+        "model.layers.32",
+        "model.layers.34",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 2,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r02",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.11",
+        "model.layers.12",
+        "model.layers.14",
+        "model.layers.17",
+        "model.layers.2",
+        "model.layers.20",
+        "model.layers.25",
+        "model.layers.26",
+        "model.layers.30",
+        "model.layers.4"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 3,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r03",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.1",
+        "model.layers.12",
+        "model.layers.13",
+        "model.layers.16",
+        "model.layers.21",
+        "model.layers.25",
+        "model.layers.28",
+        "model.layers.30",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.8"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 4,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r04",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.10",
+        "model.layers.11",
+        "model.layers.14",
+        "model.layers.15",
+        "model.layers.16",
+        "model.layers.26",
+        "model.layers.29",
+        "model.layers.31",
+        "model.layers.34",
+        "model.layers.5",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 5,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r05",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.10",
+        "model.layers.12",
+        "model.layers.13",
+        "model.layers.16",
+        "model.layers.19",
+        "model.layers.25",
+        "model.layers.26",
+        "model.layers.30",
+        "model.layers.4",
+        "model.layers.5",
+        "model.layers.8"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 6,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r06",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.10",
+        "model.layers.13",
+        "model.layers.14",
+        "model.layers.19",
+        "model.layers.29",
+        "model.layers.31",
+        "model.layers.33",
+        "model.layers.34",
+        "model.layers.35",
+        "model.layers.7",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 7,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r07",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.11",
+        "model.layers.12",
+        "model.layers.17",
+        "model.layers.2",
+        "model.layers.24",
+        "model.layers.26",
+        "model.layers.27",
+        "model.layers.32",
+        "model.layers.35",
+        "model.layers.5",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 8,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r08",
+      "quantization": "nf4_4bit"
+    },
+    {
+      "bnb_4bit_quant_type": "nf4",
+      "keep_modules_high_precision": [
+        "model.layers.14",
+        "model.layers.16",
+        "model.layers.19",
+        "model.layers.22",
+        "model.layers.28",
+        "model.layers.30",
+        "model.layers.32",
+        "model.layers.34",
+        "model.layers.35",
+        "model.layers.8",
+        "model.layers.9"
+      ],
+      "load_in_4bit": true,
+      "metadata": {
+        "high_precision_budget_fraction": 0.3055555555555556,
+        "random_replicate": 9,
+        "random_seed": 2026,
+        "selection_strategy": "random_blocks",
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selective_precision_role": "heldout_control"
+      },
+      "name": "selective_random_b30_r09",
+      "quantization": "nf4_4bit"
+    }
+  ]
+}
