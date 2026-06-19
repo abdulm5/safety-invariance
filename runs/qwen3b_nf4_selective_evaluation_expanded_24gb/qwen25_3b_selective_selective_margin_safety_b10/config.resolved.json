@@ -1,0 +1,68 @@
+{
+  "context_compression": {},
+  "max_new_tokens": 256,
+  "metadata": {
+    "calibration_and_evaluation_tasks_disjoint": true,
+    "collection_matrix": true,
+    "external_benchmarks_required_for_final_claims": true,
+    "hardware_target": "single 24GB GPU",
+    "heldout_custom_safety_task_count": 48,
+    "purpose": "powered action-margin selective-precision evaluation",
+    "random_control_count_per_budget": 100,
+    "selection_artifact": "configs/generated/qwen3b_nf4_margin_expanded_selection.json",
+    "selective_precision_phase": "heldout_evaluation",
+    "selective_precision_study": "qwen25_3b_nf4_selective_precision_expanded_24gb"
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": false
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "label": "qwen25_3b_selective"
+    },
+    "model_id": "Qwen/Qwen2.5-3B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "output_dir": "runs/qwen3b_nf4_selective_evaluation_expanded_24gb/qwen25_3b_selective_selective_margin_safety_b10",
+  "run_name": "qwen25_3b_selective_selective_margin_safety_b10",
+  "seeds": [
+    0
+  ],
+  "task_paths": [
+    "/workspace/safety-invariance/data/tasks/selective_precision_utility_heldout.json",
+    "/workspace/safety-invariance/data/tasks/agentdojo_minimal.json",
+    "/workspace/safety-invariance/data/tasks/custom_safety.json",
+    "/workspace/safety-invariance/data/tasks/chat_safety_probes.json",
+    "/workspace/safety-invariance/data/tasks/situational_awareness_probes.json",
+    "/workspace/safety-invariance/data/tasks/agentharm_lite.json",
+    "/workspace/safety-invariance/data/tasks/selective_precision_safety_heldout_expanded.json"
+  ],
+  "temperature": 0.0,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [
+      "model.layers.35",
+      "model.layers.0",
+      "model.layers.33",
+      "model.layers.17"
+    ],
+    "load_in_4bit": true,
+    "load_in_8bit": false,
+    "metadata": {
+      "high_precision_budget_fraction": 0.1111111111111111,
+      "selection_strategy": "action_margin_causal_recovery",
+      "selective_precision_backend": "post_load_replacement",
+      "selective_precision_requested": true,
+      "selective_precision_role": "heldout_evaluation"
+    },
+    "name": "selective_margin_safety_b10",
+    "quantization": "nf4_4bit"
+  }
+}
