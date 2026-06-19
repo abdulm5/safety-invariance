@@ -23,6 +23,7 @@ from safety_invariance.schemas import (
     RunConfig,
     TransformSpec,
 )
+from safety_invariance.selective_audit import score_selective_audit, write_selective_audit
 from safety_invariance.selective_precision import (
     analyze_selective_calibration,
     load_selective_precision_study,
@@ -157,6 +158,33 @@ def build_parser() -> argparse.ArgumentParser:
     selective_report_parser.add_argument("--out", help="Override Markdown report path")
     selective_report_parser.add_argument("--bootstrap-samples", type=int, default=5000)
     selective_report_parser.set_defaults(func=cmd_selective_report)
+
+    selective_audit_parser = subparsers.add_parser(
+        "selective-audit",
+        help="Create a blinded FP16/quantized/intervention human-audit packet",
+    )
+    selective_audit_parser.add_argument("--study", required=True)
+    selective_audit_parser.add_argument("--intervention-transform", required=True)
+    selective_audit_parser.add_argument("--candidate-transform")
+    selective_audit_parser.add_argument("--run-root")
+    selective_audit_parser.add_argument("--out", required=True, help="Output Markdown packet path")
+    selective_audit_parser.add_argument("--non-flip-sample", type=int, default=12)
+    selective_audit_parser.add_argument("--seed", type=int)
+    selective_audit_parser.set_defaults(func=cmd_selective_audit)
+
+    selective_audit_score_parser = subparsers.add_parser(
+        "selective-audit-score",
+        help="Score completed blinded audit annotations and calculate agreement",
+    )
+    selective_audit_score_parser.add_argument("--key", required=True, help="Audit .key.json path")
+    selective_audit_score_parser.add_argument(
+        "--annotations",
+        action="append",
+        required=True,
+        help="Completed annotation CSV; pass once per annotator",
+    )
+    selective_audit_score_parser.add_argument("--out", required=True)
+    selective_audit_score_parser.set_defaults(func=cmd_selective_audit_score)
 
     mechanism_parser = subparsers.add_parser(
         "mechanistic-analyze",
@@ -379,6 +407,31 @@ def cmd_selective_report(args: argparse.Namespace) -> int:
         bootstrap_samples=args.bootstrap_samples,
     )
     print(str(path))
+    return 0
+
+
+def cmd_selective_audit(args: argparse.Namespace) -> int:
+    study = load_selective_precision_study(args.study)
+    result = write_selective_audit(
+        study,
+        intervention_transform=args.intervention_transform,
+        candidate_transform=args.candidate_transform,
+        run_root=args.run_root,
+        out=args.out,
+        non_flip_sample=args.non_flip_sample,
+        seed=args.seed,
+    )
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_selective_audit_score(args: argparse.Namespace) -> int:
+    result = score_selective_audit(
+        key_path=args.key,
+        annotation_paths=args.annotations,
+        out=args.out,
+    )
+    print(json.dumps(result, sort_keys=True))
     return 0
 
 

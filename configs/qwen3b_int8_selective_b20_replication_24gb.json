@@ -1,0 +1,28 @@
+{
+  "extends": "qwen3b_nf4_selective_precision_expanded_study_24gb.json",
+  "study_name": "qwen25_3b_int8_selective_b20_replication_24gb",
+  "base_transform": {
+    "name": "int8",
+    "quantization": "int8",
+    "load_in_8bit": true,
+    "load_in_4bit": false
+  },
+  "calibration": {
+    "output_root": "runs/qwen3b_int8_selective_calibration_24gb",
+    "report_path": "reports/qwen3b_int8_selective_calibration_24gb.md"
+  },
+  "evaluation": {
+    "output_root": "runs/qwen3b_int8_selective_b20_evaluation_24gb",
+    "report_path": "reports/qwen3b_int8_selective_b20_evaluation_24gb.md"
+  },
+  "calibration_artifact_path": "configs/generated/qwen3b_int8_b20_selection.json",
+  "margin_artifact_path": "runs/qwen3b_int8_action_margins_24gb.json",
+  "evaluation_matrix_path": "configs/generated/qwen3b_int8_b20_evaluation_matrix.json",
+  "budgets": [0.2],
+  "random_controls": 100,
+  "metadata": {
+    "purpose": "preregistered cross-quantizer INT8 selective-precision replication",
+    "primary_budget_fraction": 0.2,
+    "exploratory_budget_sweep": false
+  }
+}

@@ -285,6 +285,70 @@ The generated matrix contains 422 transforms: FP16, full NF4, five prespecified 
 
 The expanded suite is a powered custom diagnostic for the selective-precision hypothesis. Final paper claims still require native AgentDojo, AgentHarm, and ToolSandbox evaluation with benchmark-native scoring.
 
+### Blinded Flip Audit
+
+Generate a packet containing every FP16-to-NF4 safety flip, every b20 safety flip, and a deterministic non-flip sample. Output identities are randomized independently per task. The unblinding key is separate from the Markdown and JSONL packets:
+
+```bash
+si selective-audit \
+  --study configs/qwen3b_nf4_selective_precision_expanded_study_24gb.json \
+  --intervention-transform selective_margin_safety_b20 \
+  --non-flip-sample 12 \
+  --out reports/qwen3b_nf4_b20_blinded_audit.md
+```
+
+Give `qwen3b_nf4_b20_blinded_audit.md` and one CSV template to each annotator. Do not give annotators the `.key.json` file. Labels are `safe/unsafe/unclear` and `pass/fail/unclear`. After both annotators finish independently, compute Cohen's kappa and unblind validated regressions and recoveries:
+
+```bash
+si selective-audit-score \
+  --key reports/qwen3b_nf4_b20_blinded_audit.key.json \
+  --annotations reports/qwen3b_nf4_b20_blinded_audit.annotator_1.csv \
+  --annotations reports/qwen3b_nf4_b20_blinded_audit.annotator_2.csv \
+  --out reports/qwen3b_nf4_b20_human_audit.md
+```
+
+Disagreements remain unresolved rather than being silently assigned a majority label. Adjudicate those cases separately while preserving the original annotations.
+
+### Preregistered B20 Replications
+
+The expanded Qwen/NF4 sweep identified 20% high precision as the primary replication budget. The replication configs freeze that single budget and use 100 random controls, reducing each held-out matrix from 422 to 107 transforms.
+
+Cross-model NF4 replication:
+
+```bash
+STUDY=configs/llama31_8b_nf4_selective_b20_replication_24gb.json
+si selective-plan --study "$STUDY"
+si preflight --matrix configs/generated/llama31_8b_nf4_selective_b20_replication_24gb_calibration_matrix.json --check-hf-access
+si collect --matrix configs/generated/llama31_8b_nf4_selective_b20_replication_24gb_calibration_matrix.json --dry-run
+si collect --matrix configs/generated/llama31_8b_nf4_selective_b20_replication_24gb_calibration_matrix.json
+si selective-margin-collect --study "$STUDY"
+si selective-analyze --study "$STUDY"
+si collect --matrix configs/generated/llama31_8b_nf4_b20_evaluation_matrix.json --dry-run
+si collect --matrix configs/generated/llama31_8b_nf4_b20_evaluation_matrix.json
+si selective-report --study "$STUDY"
+```
+
+Cross-quantizer INT8 replication:
+
+```bash
+si preflight --matrix configs/qwen3b_int8_selective_smoke_24gb.json
+si collect --matrix configs/qwen3b_int8_selective_smoke_24gb.json --dry-run
+si collect --matrix configs/qwen3b_int8_selective_smoke_24gb.json
+
+STUDY=configs/qwen3b_int8_selective_b20_replication_24gb.json
+si selective-plan --study "$STUDY"
+si preflight --matrix configs/generated/qwen25_3b_int8_selective_b20_replication_24gb_calibration_matrix.json
+si collect --matrix configs/generated/qwen25_3b_int8_selective_b20_replication_24gb_calibration_matrix.json --dry-run
+si collect --matrix configs/generated/qwen25_3b_int8_selective_b20_replication_24gb_calibration_matrix.json
+si selective-margin-collect --study "$STUDY"
+si selective-analyze --study "$STUDY"
+si collect --matrix configs/generated/qwen3b_int8_b20_evaluation_matrix.json --dry-run
+si collect --matrix configs/generated/qwen3b_int8_b20_evaluation_matrix.json
+si selective-report --study "$STUDY"
+```
+
+The Llama run requires accepted Hugging Face access and a read token. Both studies recalibrate all blocks; do not reuse the Qwen/NF4 ranking across models or quantizers.
+
 The NF4 loader first initializes every quantized layer normally, loads a CPU FP16 reference checkpoint, and replaces only the selected blocks on their target device. This avoids partially initialized bitsandbytes layers observed with skip-module loading on newer CUDA/PyTorch stacks. The loader records parameter cost, model footprint, peak CUDA allocation, restoration backend, device, and dtype in each manifest. It aborts when a requested block is missing, remains quantized, or causes an unselected block to remain at high precision.
 
 ### Legacy Trace-Heuristic Calibration

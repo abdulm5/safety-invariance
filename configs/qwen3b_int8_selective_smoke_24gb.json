@@ -1,0 +1,52 @@
+{
+  "output_root": "runs/qwen3b_int8_selective_smoke_24gb",
+  "report_path": "reports/qwen3b_int8_selective_smoke_24gb.md",
+  "models": [
+    {
+      "provider": "hf",
+      "model_id": "Qwen/Qwen2.5-3B-Instruct",
+      "device_map": "auto",
+      "torch_dtype": "float16",
+      "metadata": {
+        "label": "qwen25_3b_int8_selective_smoke"
+      }
+    }
+  ],
+  "transforms": [
+    {
+      "name": "fp16",
+      "quantization": "none"
+    },
+    {
+      "name": "int8",
+      "quantization": "int8",
+      "load_in_8bit": true
+    },
+    {
+      "name": "int8_restore_block_17",
+      "quantization": "int8",
+      "load_in_8bit": true,
+      "keep_modules_high_precision": ["model.layers.17"],
+      "metadata": {
+        "selective_precision_backend": "post_load_replacement",
+        "selective_precision_requested": true,
+        "selection_strategy": "loader_smoke"
+      }
+    }
+  ],
+  "task_paths": [
+    "data/tasks/custom_safety.json"
+  ],
+  "seeds": [0],
+  "max_new_tokens": 96,
+  "temperature": 0.0,
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": false
+    }
+  },
+  "metadata": {
+    "hardware_target": "single 24GB GPU",
+    "purpose": "INT8 post-load selective-restoration acceptance test"
+  }
+}
