@@ -1,0 +1,36 @@
+{
+  "extends": "qwen3b_nf4_selective_precision_expanded_study_24gb.json",
+  "study_name": "llama31_8b_nf4_selective_b20_replication_24gb",
+  "model": {
+    "provider": "hf",
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "device_map": "auto",
+    "torch_dtype": "float16",
+    "metadata": {
+      "label": "llama31_8b_nf4_selective_b20",
+      "access_note": "Requires accepted Hugging Face model access and a read token."
+    }
+  },
+  "blocks": {
+    "prefix": "model.layers",
+    "count": 32
+  },
+  "calibration": {
+    "output_root": "runs/llama31_8b_nf4_selective_calibration_24gb",
+    "report_path": "reports/llama31_8b_nf4_selective_calibration_24gb.md"
+  },
+  "evaluation": {
+    "output_root": "runs/llama31_8b_nf4_selective_b20_evaluation_24gb",
+    "report_path": "reports/llama31_8b_nf4_selective_b20_evaluation_24gb.md"
+  },
+  "calibration_artifact_path": "configs/generated/llama31_8b_nf4_b20_selection.json",
+  "margin_artifact_path": "runs/llama31_8b_nf4_action_margins_24gb.json",
+  "evaluation_matrix_path": "configs/generated/llama31_8b_nf4_b20_evaluation_matrix.json",
+  "budgets": [0.2],
+  "random_controls": 100,
+  "metadata": {
+    "purpose": "preregistered cross-model NF4 selective-precision replication",
+    "primary_budget_fraction": 0.2,
+    "exploratory_budget_sweep": false
+  }
+}

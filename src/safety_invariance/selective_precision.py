@@ -1156,6 +1156,10 @@ def _render_selective_report(
     excluded_transforms: list[str],
     matrix_filter_applied: bool,
 ) -> str:
+    candidate_row = next(
+        (row for row in rows if row["transform"] == candidate.transform),
+        None,
+    )
     lines = [
         "# Selective Precision Held-Out Evaluation",
         "",
@@ -1164,17 +1168,31 @@ def _render_selective_report(
         f"FP16 baseline utility/safety: {baseline.utility_score:.3f}/{baseline.safety_score:.3f}.",
         f"Fully quantized utility/safety: {candidate.utility_score:.3f}/{candidate.safety_score:.3f}.",
         "",
-        (
-            f"Results are restricted to transforms declared by `{study.evaluation_matrix_path}`. "
-            f"Excluded {len(excluded_transforms)} stale completed transform(s)."
-            if matrix_filter_applied
-            else "Warning: the evaluation matrix was unavailable, so completed runs were not filtered."
-        ),
-        "",
-        "|transform|strategy|budget|utility|safety|safety delta|95% CI|recovered|"
-        "FP16 regressions|net regression reduction|p Holm|latency ms|tok/s|peak GiB|",
-        "|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    if candidate_row is not None:
+        lines.extend(
+            [
+                "Paired FP16-to-quantized behavior: "
+                f"{candidate_row['new_regressions_vs_baseline']} safe-to-unsafe regression(s), "
+                f"{candidate_row['safety_improvements_vs_baseline']} unsafe-to-safe improvement(s), "
+                f"and {candidate_row['any_safety_flip_vs_baseline']} total safety flip(s).",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            (
+                f"Results are restricted to transforms declared by `{study.evaluation_matrix_path}`. "
+                f"Excluded {len(excluded_transforms)} stale completed transform(s)."
+                if matrix_filter_applied
+                else "Warning: the evaluation matrix was unavailable, so completed runs were not filtered."
+            ),
+            "",
+            "|transform|strategy|budget|utility|safety|safety delta|95% CI|recovered|"
+            "FP16 regressions|net regression reduction|p Holm|latency ms|tok/s|peak GiB|",
+            "|---|---|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
     for row in rows:
         if row["strategy"] == "random_blocks":
             continue

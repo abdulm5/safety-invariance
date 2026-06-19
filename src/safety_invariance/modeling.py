@@ -166,7 +166,12 @@ class HFModelClient:
         dtype = self._torch_dtype(torch)
         post_load_restore = False
         if self.transform.load_in_8bit or self.transform.quantization == "int8":
-            skip_modules = self._backend_skip_modules(self.transform.keep_modules_high_precision)
+            post_load_restore = self._uses_post_load_restoration()
+            skip_modules = (
+                []
+                if post_load_restore
+                else self._backend_skip_modules(self.transform.keep_modules_high_precision)
+            )
             quantization_config = BitsAndBytesConfig(
                 load_in_8bit=True,
                 llm_int8_skip_modules=skip_modules or None,

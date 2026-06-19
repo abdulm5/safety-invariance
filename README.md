@@ -85,6 +85,23 @@ si selective-report \
 
 The expanded study has 64 held-out safety outcomes, 9 utility/benign outcomes, and 100 random block controls at each of four budgets. Reports whitelist transforms from the generated evaluation matrix, keep individual random controls in JSON, and test net reduction of FP16-to-NF4 safety regressions with conservative empirical p-values and Holm correction. These custom tasks improve power for the mechanism study but do not replace full external benchmark evaluation.
 
+Create a blinded audit packet for the FP16/NF4/b20 flips, then score two completed independent annotation files:
+
+```bash
+si selective-audit \
+  --study configs/qwen3b_nf4_selective_precision_expanded_study_24gb.json \
+  --intervention-transform selective_margin_safety_b20 \
+  --out reports/qwen3b_nf4_b20_blinded_audit.md
+
+si selective-audit-score \
+  --key reports/qwen3b_nf4_b20_blinded_audit.key.json \
+  --annotations reports/qwen3b_nf4_b20_blinded_audit.annotator_1.csv \
+  --annotations reports/qwen3b_nf4_b20_blinded_audit.annotator_2.csv \
+  --out reports/qwen3b_nf4_b20_human_audit.md
+```
+
+Focused 20% replication studies are defined for `Llama-3.1-8B-Instruct` with NF4 and Qwen2.5-3B with INT8. Each independently recalibrates its block ranking and evaluates 100 random controls.
+
 ## Scope
 
 See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. The legacy bitsandbytes skip-module backend remains available by explicit transform metadata, but the verified post-load replacement backend is the default for NF4.

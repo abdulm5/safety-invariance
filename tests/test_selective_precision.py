@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from safety_invariance.agent import run_task
 from safety_invariance.evaluation import score_trace, write_score_bundle
-from safety_invariance.matrix import run_collection_matrix
+from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix
 from safety_invariance.modeling import HFModelClient, MockModelClient
 from safety_invariance.margin_calibration import collect_action_margins
 from safety_invariance.schemas import ModelSpec, ScoreBundle, TransformSpec
@@ -62,6 +62,21 @@ class SelectivePrecisionTests(unittest.TestCase):
         )
         client.compatibility = {}
         self.assertFalse(client._uses_post_load_restoration())
+
+    def test_int8_selective_precision_uses_post_load_restoration(self) -> None:
+        client = object.__new__(HFModelClient)
+        client.transform = TransformSpec(
+            name="selective_int8",
+            quantization="int8",
+            load_in_8bit=True,
+            keep_modules_high_precision=("model.layers.1",),
+        )
+        client.compatibility = {}
+        self.assertTrue(client._uses_post_load_restoration())
+        self.assertEqual(
+            client.compatibility["selective_precision_backend"],
+            "post_load_replacement",
+        )
 
     def test_transformers_5_skip_patterns_have_block_boundaries(self) -> None:
         client = object.__new__(HFModelClient)
@@ -158,6 +173,68 @@ class SelectivePrecisionTests(unittest.TestCase):
                 _, safety_success, _ = score_trace(task, trace)
                 observed.append(safety_success)
             self.assertEqual(observed, [expected_safety] * len(tasks))
+
+    def test_b20_replication_studies_generate_focused_matrices(self) -> None:
+        cases = (
+            (
+                "configs/llama31_8b_nf4_selective_b20_replication_24gb.json",
+                32,
+                "nf4_4bit",
+            ),
+            (
+                "configs/qwen3b_int8_selective_b20_replication_24gb.json",
+                36,
+                "int8",
+            ),
+        )
+        for path, block_count, candidate_transform in cases:
+            with self.subTest(path=path):
+                study = load_selective_precision_study(path)
+                self.assertEqual(len(study.blocks), block_count)
+                self.assertEqual(study.budgets, (0.2,))
+                self.assertEqual(study.random_controls, 100)
+                self.assertEqual(study.base_transform["name"], candidate_transform)
+                if candidate_transform == "int8":
+                    self.assertTrue(study.base_transform["load_in_8bit"])
+                    self.assertFalse(study.base_transform["load_in_4bit"])
+                count = math.ceil(0.2 * block_count)
+                selection = {
+                    "selections": {
+                        "b20": {
+                            "budget_fraction": count / block_count,
+                            "block_count": count,
+                            "safety_selected": list(study.blocks[:count]),
+                            "utility_selected": list(study.blocks[-count:]),
+                            "first_blocks": list(study.blocks[:count]),
+                            "last_blocks": list(study.blocks[-count:]),
+                        }
+                    }
+                }
+                with tempfile.TemporaryDirectory() as temp:
+                    matrix_path = write_selective_evaluation_matrix(
+                        study,
+                        selection,
+                        Path(temp) / "matrix.json",
+                    )
+                    matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+                self.assertEqual(len(matrix["transforms"]), 107)
+                self.assertEqual(matrix["transforms"][1]["name"], candidate_transform)
+                self.assertEqual(
+                    sum(
+                        transform.get("metadata", {}).get("selection_strategy")
+                        == "random_blocks"
+                        for transform in matrix["transforms"]
+                    ),
+                    100,
+                )
+
+        smoke = load_collection_matrix("configs/qwen3b_int8_selective_smoke_24gb.json")
+        smoke_runs = expand_matrix(smoke)
+        self.assertEqual(len(smoke_runs), 3)
+        self.assertEqual(
+            smoke_runs[2].transform.keep_modules_high_precision,
+            ("model.layers.17",),
+        )
 
     def test_action_margin_recovery_scores_dense_interventions(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -429,6 +506,8 @@ class SelectivePrecisionTests(unittest.TestCase):
             text = report.read_text(encoding="utf-8")
             self.assertIn("Selective Precision Held-Out Evaluation", text)
             self.assertIn("causal_safety_recovery", text)
+            self.assertIn("2 safe-to-unsafe regression(s)", text)
+            self.assertIn("2 total safety flip(s)", text)
             self.assertIn("Safety Selection Versus Random Controls", text)
             self.assertIn("net regression reduction", text)
             self.assertIn("Excluded 1 stale completed transform", text)
