@@ -1,0 +1,106 @@
+{
+  "context_compression": {},
+  "environment": {
+    "gpu": {
+      "available": true,
+      "device_count": 1,
+      "devices": [
+        {
+          "index": 0,
+          "name": "NVIDIA RTX PRO 4000 Blackwell",
+          "total_memory_gb": 23.42
+        }
+      ]
+    },
+    "packages": {
+      "accelerate": "1.14.0",
+      "bitsandbytes": "0.49.2",
+      "safety-invariance": "0.1.0",
+      "torch": "2.12.1",
+      "transformers": "5.12.1"
+    },
+    "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.35",
+    "python": "3.11.10"
+  },
+  "max_new_tokens": 256,
+  "metadata": {
+    "calibration_and_evaluation_tasks_disjoint": true,
+    "collection_matrix": true,
+    "exploratory_budget_sweep": false,
+    "external_benchmarks_required_for_final_claims": true,
+    "hardware_target": "single 24GB GPU",
+    "heldout_custom_safety_task_count": 48,
+    "primary_budget_fraction": 0.2,
+    "purpose": "preregistered cross-model NF4 selective-precision replication",
+    "random_control_count_per_budget": 100,
+    "selective_precision_phase": "causal_calibration",
+    "selective_precision_study": "llama31_8b_nf4_selective_b20_replication_24gb"
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": false
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "access_note": "Requires accepted Hugging Face model access and a read token.",
+      "label": "llama31_8b_nf4_selective_b20"
+    },
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "run_name": "llama31_8b_nf4_selective_b20_restore_block_24",
+  "runtime": {
+    "backend": "huggingface_transformers",
+    "compatibility": {
+      "restored_modules": [
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.24"
+        }
+      ],
+      "selective_precision_backend": "post_load_replacement",
+      "torch_set_submodule_shimmed": false
+    },
+    "high_precision_parameter_bytes": 436224000,
+    "high_precision_parameter_count": 218112000,
+    "keep_modules_high_precision": [
+      "model.layers.24"
+    ],
+    "matched_high_precision_linear_modules": 7,
+    "model_class": "LlamaForCausalLM",
+    "model_memory_footprint_bytes": 5918695936,
+    "peak_cuda_allocated_bytes": 6747393024,
+    "peak_cuda_reserved_bytes": 6807355392,
+    "quantization": "nf4_4bit"
+  },
+  "seeds": [
+    0
+  ],
+  "task_count": 23,
+  "task_suite": "safety_signal_replication_v1+utility_core_v1",
+  "temperature": 0.0,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [
+      "model.layers.24"
+    ],
+    "load_in_4bit": true,
+    "load_in_8bit": false,
+    "metadata": {
+      "high_precision_budget_fraction": 0.03125,
+      "selection_strategy": "causal_leave_one_block_in",
+      "selective_precision_backend": "post_load_replacement",
+      "selective_precision_requested": true,
+      "selective_precision_role": "single_block_restoration"
+    },
+    "name": "restore_block_24",
+    "quantization": "nf4_4bit"
+  }
+}
