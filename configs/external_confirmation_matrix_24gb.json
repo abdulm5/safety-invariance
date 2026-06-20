@@ -1,0 +1,287 @@
+{
+  "name": "native_external_confirmation_24gb",
+  "output_root": "runs/native_external_confirmation_24gb",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8765
+  },
+  "profiles": [
+    {
+      "name": "qwen25_3b_fp16",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {"name": "fp16", "quantization": "none"},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "qwen25_3b_nf4",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {"name": "nf4_4bit", "quantization": "nf4_4bit", "load_in_4bit": true},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "qwen25_3b_nf4_safety_b20_frozen",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "nf4_safety_b20_frozen",
+        "quantization": "nf4_4bit",
+        "load_in_4bit": true,
+        "keep_modules_high_precision": [
+          "model.layers.35", "model.layers.0", "model.layers.33", "model.layers.17",
+          "model.layers.34", "model.layers.9", "model.layers.32", "model.layers.25"
+        ],
+        "metadata": {
+          "selective_precision_backend": "post_load_replacement",
+          "selection": "action_margin_causal_recovery",
+          "selection_split": "custom_calibration_only",
+          "selection_frozen_before_external_evaluation": true
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "qwen25_3b_nf4_utility_b20_frozen",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "nf4_utility_b20_frozen",
+        "quantization": "nf4_4bit",
+        "load_in_4bit": true,
+        "keep_modules_high_precision": [
+          "model.layers.12", "model.layers.17", "model.layers.10", "model.layers.13",
+          "model.layers.27", "model.layers.31", "model.layers.6", "model.layers.35"
+        ],
+        "metadata": {
+          "selective_precision_backend": "post_load_replacement",
+          "selection": "utility_margin_recovery",
+          "selection_split": "custom_calibration_only",
+          "selection_frozen_before_external_evaluation": true,
+          "hypothesis_status": "exploratory_fresh_data_confirmation"
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "llama31_8b_fp16",
+      "model": {
+        "provider": "hf",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "torch_dtype": "float16"
+      },
+      "transform": {"name": "fp16", "quantization": "none"},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "llama31_8b_nf4",
+      "model": {
+        "provider": "hf",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "torch_dtype": "float16"
+      },
+      "transform": {"name": "nf4_4bit", "quantization": "nf4_4bit", "load_in_4bit": true},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "llama31_8b_nf4_safety_b20_frozen",
+      "model": {
+        "provider": "hf",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "nf4_safety_b20_frozen",
+        "quantization": "nf4_4bit",
+        "load_in_4bit": true,
+        "keep_modules_high_precision": [
+          "model.layers.9", "model.layers.11", "model.layers.8", "model.layers.12",
+          "model.layers.29", "model.layers.23", "model.layers.27"
+        ],
+        "metadata": {
+          "selective_precision_backend": "post_load_replacement",
+          "selection": "action_margin_causal_recovery",
+          "selection_split": "custom_calibration_only",
+          "selection_frozen_before_external_evaluation": true
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "llama31_8b_nf4_utility_b20_frozen",
+      "model": {
+        "provider": "hf",
+        "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+        "revision": "0e9e39f249a16976918f6564b8830bc894c89659",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "nf4_utility_b20_frozen",
+        "quantization": "nf4_4bit",
+        "load_in_4bit": true,
+        "keep_modules_high_precision": [
+          "model.layers.4", "model.layers.11", "model.layers.14", "model.layers.24",
+          "model.layers.10", "model.layers.29", "model.layers.21"
+        ],
+        "metadata": {
+          "selective_precision_backend": "post_load_replacement",
+          "selection": "utility_margin_recovery",
+          "selection_split": "custom_calibration_only",
+          "selection_frozen_before_external_evaluation": true,
+          "hypothesis_status": "exploratory_fresh_data_confirmation"
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "qwen3_8b_fp16",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen3-8B",
+        "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+        "torch_dtype": "float16",
+        "metadata": {"chat_template_options": {"enable_thinking": false}}
+      },
+      "transform": {"name": "fp16", "quantization": "none"},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "qwen3_8b_nf4",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen3-8B",
+        "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+        "torch_dtype": "float16",
+        "metadata": {"chat_template_options": {"enable_thinking": false}}
+      },
+      "transform": {"name": "nf4_4bit", "quantization": "nf4_4bit", "load_in_4bit": true},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "mistral_7b_fp16",
+      "model": {
+        "provider": "hf",
+        "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+        "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+        "torch_dtype": "float16"
+      },
+      "transform": {"name": "fp16", "quantization": "none"},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "mistral_7b_nf4",
+      "model": {
+        "provider": "hf",
+        "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+        "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+        "torch_dtype": "float16"
+      },
+      "transform": {"name": "nf4_4bit", "quantization": "nf4_4bit", "load_in_4bit": true},
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    }
+  ],
+  "benchmarks": [
+    {
+      "name": "agentdojo_benign_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": ["workspace", "banking"],
+      "attack": null,
+      "defense": null
+    },
+    {
+      "name": "agentdojo_direct_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": ["workspace", "banking"],
+      "attack": "direct",
+      "defense": null
+    },
+    {
+      "name": "agentdojo_tool_knowledge_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": ["workspace", "banking"],
+      "attack": "tool_knowledge",
+      "defense": null
+    },
+    {
+      "name": "agentharm_public_harmful",
+      "kind": "agentharm",
+      "task": "agentharm",
+      "split": "test_public",
+      "refusal_judge": "openai/gpt-4o-2024-08-06",
+      "semantic_judge": "openai/gpt-4o-2024-08-06"
+    },
+    {
+      "name": "agentharm_public_benign",
+      "kind": "agentharm",
+      "task": "agentharm_benign",
+      "split": "test_public",
+      "refusal_judge": "openai/gpt-4o-2024-08-06",
+      "semantic_judge": "openai/gpt-4o-2024-08-06"
+    }
+  ],
+  "metadata": {
+    "protocol_status": "frozen_before_native_external_collection",
+    "primary_endpoint": "paired_fp16_safe_to_transformed_unsafe_regression_rate",
+    "secondary_endpoints": [
+      "unsafe_to_safe_improvement_rate",
+      "any_behavioral_flip_rate",
+      "native_utility_delta",
+      "native_security_delta",
+      "peak_vram",
+      "latency",
+      "throughput"
+    ],
+    "agentdojo_version": "0.1.35",
+    "agentdojo_revision": "089ed468cf3ed0322acc66b0211f26d9d90dbf60",
+    "inspect_evals_revision": "02e4582960a7ce45820ef2fb6450a8bb4f74359b",
+    "confirmatory_family": "fp16_vs_full_nf4",
+    "selective_precision_status": "prespecified_external_replication",
+    "utility_selection_status": "exploratory_hypothesis_test_on_fresh_external_data"
+  }
+}

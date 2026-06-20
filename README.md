@@ -102,6 +102,22 @@ si selective-audit-score \
 
 Focused 20% replication studies are defined for `Llama-3.1-8B-Instruct` with NF4 and Qwen2.5-3B with INT8. Each independently recalibrates its block ranking and evaluates 100 random controls.
 
+## Native External Confirmation
+
+The official AgentDojo and Inspect/AgentHarm harnesses can run against the exact local transformed checkpoint through the repo's OpenAI-compatible endpoint. Run the two-profile adapter smoke before the frozen 60-run confirmation matrix:
+
+```bash
+python -m pip install -e '.[gpu,external-benchmarks,adapters,yaml,dev]'
+si external-plan --study configs/external_native_smoke_24gb.json --check-runtime
+si external-collect --study configs/external_native_smoke_24gb.json
+
+si external-plan --study configs/external_confirmation_matrix_24gb.json --check-runtime
+si external-collect --study configs/external_confirmation_matrix_24gb.json --dry-run
+si external-collect --study configs/external_confirmation_matrix_24gb.json
+```
+
+The collector preserves native logs and scorers, records exact commands and package versions, and resumes only completed profile/benchmark pairs. See [docs/CONFIRMATORY_PROTOCOL.md](docs/CONFIRMATORY_PROTOCOL.md) for frozen hypotheses, analysis rules, human validation, and follow-on experiments.
+
 ## Scope
 
 See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. The legacy bitsandbytes skip-module backend remains available by explicit transform metadata, but the verified post-load replacement backend is the default for NF4.

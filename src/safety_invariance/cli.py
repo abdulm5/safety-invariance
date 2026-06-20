@@ -10,10 +10,17 @@ from safety_invariance.calibration import calibrate_selective_precision
 from safety_invariance.config import load_run_config
 from safety_invariance.diagnostics import write_diagnostic_report
 from safety_invariance.evaluation import load_score_bundle, with_retention, write_score_bundle
-from safety_invariance.external import run_agentdojo, run_toolsandbox
+from safety_invariance.external import run_agentdojo, run_agentharm, run_toolsandbox
+from safety_invariance.external_study import (
+    load_external_study,
+    run_external_study,
+    validate_external_study,
+    write_external_study_plan,
+)
 from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
 from safety_invariance.margin_calibration import collect_action_margins
 from safety_invariance.mechanistic import analyze_mechanistic_divergence
+from safety_invariance.openai_compat import load_model_profile, serve_profile
 from safety_invariance.preflight import run_preflight
 from safety_invariance.reporting import write_markdown_report
 from safety_invariance.rescoring import rescore_run_dirs
@@ -215,6 +222,46 @@ def build_parser() -> argparse.ArgumentParser:
     sandbox_parser.add_argument("--extra-arg", action="append", default=[])
     sandbox_parser.add_argument("--dry-run", action="store_true")
     sandbox_parser.set_defaults(func=cmd_run_toolsandbox)
+
+    agentharm_parser = subparsers.add_parser("run-agentharm", help="Run Inspect's native AgentHarm evaluation")
+    agentharm_parser.add_argument("--model", required=True, help="Inspect model id")
+    agentharm_parser.add_argument("--out-dir", required=True)
+    agentharm_parser.add_argument("--task", default="agentharm", choices=("agentharm", "agentharm_benign"))
+    agentharm_parser.add_argument("--split", default="test_public")
+    agentharm_parser.add_argument("--refusal-judge")
+    agentharm_parser.add_argument("--semantic-judge")
+    agentharm_parser.add_argument("--extra-arg", action="append", default=[])
+    agentharm_parser.add_argument("--dry-run", action="store_true")
+    agentharm_parser.set_defaults(func=cmd_run_agentharm)
+
+    serve_parser = subparsers.add_parser(
+        "serve-openai",
+        help="Serve one exact local model profile through an OpenAI-compatible endpoint",
+    )
+    serve_parser.add_argument("--profile", required=True, help="Model profile JSON/YAML")
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=8000)
+    serve_parser.add_argument("--telemetry", help="Optional JSONL request telemetry path")
+    serve_parser.set_defaults(func=cmd_serve_openai)
+
+    external_plan_parser = subparsers.add_parser(
+        "external-plan",
+        help="Validate and materialize a native external-benchmark study plan",
+    )
+    external_plan_parser.add_argument("--study", required=True)
+    external_plan_parser.add_argument("--check-runtime", action="store_true")
+    external_plan_parser.set_defaults(func=cmd_external_plan)
+
+    external_collect_parser = subparsers.add_parser(
+        "external-collect",
+        help="Run native benchmarks against exact local transformed model profiles",
+    )
+    external_collect_parser.add_argument("--study", required=True)
+    external_collect_parser.add_argument("--profile", action="append", default=[])
+    external_collect_parser.add_argument("--benchmark", action="append", default=[])
+    external_collect_parser.add_argument("--dry-run", action="store_true")
+    external_collect_parser.add_argument("--no-skip-existing", action="store_true")
+    external_collect_parser.set_defaults(func=cmd_external_collect)
     return parser
 
 
@@ -481,6 +528,63 @@ def cmd_run_toolsandbox(args: argparse.Namespace) -> int:
         scenario=args.scenario,
         extra_args=tuple(args.extra_arg),
         dry_run=args.dry_run,
+    )
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_run_agentharm(args: argparse.Namespace) -> int:
+    result = run_agentharm(
+        model=args.model,
+        out_dir=args.out_dir,
+        task=args.task,
+        split=args.split,
+        refusal_judge=args.refusal_judge,
+        semantic_judge=args.semantic_judge,
+        extra_args=tuple(args.extra_arg),
+        dry_run=args.dry_run,
+    )
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_serve_openai(args: argparse.Namespace) -> int:
+    profile = load_model_profile(args.profile)
+    serve_profile(
+        profile,
+        host=args.host,
+        port=args.port,
+        telemetry_path=args.telemetry,
+    )
+    return 0
+
+
+def cmd_external_plan(args: argparse.Namespace) -> int:
+    study = load_external_study(args.study)
+    validation = validate_external_study(study, check_runtime=args.check_runtime)
+    path = write_external_study_plan(study)
+    print(
+        json.dumps(
+            {
+                "study": study.name,
+                "run_count": len(study.profiles) * len(study.benchmarks),
+                "plan_path": str(path),
+                "validation": validation,
+            },
+            sort_keys=True,
+        )
+    )
+    return 1 if validation["errors"] else 0
+
+
+def cmd_external_collect(args: argparse.Namespace) -> int:
+    study = load_external_study(args.study)
+    result = run_external_study(
+        study,
+        dry_run=args.dry_run,
+        skip_existing=not args.no_skip_existing,
+        profile_names=set(args.profile) or None,
+        benchmark_names=set(args.benchmark) or None,
     )
     print(json.dumps(result, sort_keys=True))
     return 0

@@ -488,6 +488,38 @@ class HFModelClient:
         }
         return self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
+    def generate_chat(
+        self,
+        messages: list[dict[str, object]],
+        *,
+        tools: list[dict[str, object]] | None = None,
+        max_new_tokens: int = 512,
+        temperature: float = 0.0,
+        seed: int = 0,
+    ) -> str:
+        """Generate from an OpenAI-style chat for native external benchmarks."""
+        import torch
+
+        torch.manual_seed(seed)
+        normalized = [_normalize_chat_message(message) for message in messages]
+        input_text = self._format_external_chat(normalized, tools or [])
+        inputs = self.tokenizer(input_text, return_tensors="pt").to(self.model_obj.device)
+        do_sample = temperature > 0
+        generation_kwargs = {
+            "max_new_tokens": max_new_tokens,
+            "do_sample": do_sample,
+            "pad_token_id": self.tokenizer.eos_token_id,
+        }
+        if do_sample:
+            generation_kwargs["temperature"] = temperature
+        output_ids = self.model_obj.generate(**inputs, **generation_kwargs)
+        new_tokens = output_ids[0][inputs["input_ids"].shape[-1] :]
+        self.last_generation_metadata = {
+            "input_tokens": int(inputs["input_ids"].shape[-1]),
+            "output_tokens": int(new_tokens.shape[-1]),
+        }
+        return self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+
     def inspect_prompt(
         self,
         prompt: str,
@@ -594,6 +626,34 @@ class HFModelClient:
                 pass
         return f"System: {messages[0]['content']}\nUser: {prompt}\nAssistant:"
 
+    def _format_external_chat(
+        self,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+    ) -> str:
+        if hasattr(self.tokenizer, "apply_chat_template"):
+            kwargs: dict[str, object] = {
+                "tokenize": False,
+                "add_generation_prompt": True,
+            }
+            kwargs.update(dict(self.model.metadata.get("chat_template_options", {})))
+            if tools:
+                kwargs["tools"] = tools
+            try:
+                return self.tokenizer.apply_chat_template(messages, **kwargs)
+            except Exception as exc:
+                if tools:
+                    raise RuntimeError(
+                        f"Tokenizer chat template could not encode benchmark tools: {exc}"
+                    ) from exc
+        rendered = []
+        if tools:
+            rendered.append("Available tools:\n" + json.dumps(tools, sort_keys=True))
+        for message in messages:
+            rendered.append(f"{str(message['role']).title()}: {message.get('content') or ''}")
+        rendered.append("Assistant:")
+        return "\n".join(rendered)
+
 
 def load_model_client(model: ModelSpec, transform: TransformSpec) -> ModelClient:
     if model.provider == "mock":
@@ -601,6 +661,43 @@ def load_model_client(model: ModelSpec, transform: TransformSpec) -> ModelClient
     if model.provider in {"hf", "huggingface"}:
         return HFModelClient(model=model, transform=transform)
     raise ValueError(f"Unknown model provider: {model.provider}")
+
+
+def _normalize_chat_message(message: dict[str, object]) -> dict[str, object]:
+    normalized = dict(message)
+    if normalized.get("role") == "developer":
+        normalized["role"] = "system"
+    content = normalized.get("content")
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") in {"text", "input_text"}:
+                text_parts.append(str(part.get("text", "")))
+            elif isinstance(part, str):
+                text_parts.append(part)
+        normalized["content"] = "\n".join(text_parts)
+    tool_calls = normalized.get("tool_calls")
+    if isinstance(tool_calls, list):
+        normalized_calls = []
+        for call in tool_calls:
+            if not isinstance(call, dict):
+                continue
+            function = dict(call.get("function", {}))
+            arguments = function.get("arguments")
+            if isinstance(arguments, str):
+                try:
+                    function["arguments"] = json.loads(arguments)
+                except json.JSONDecodeError:
+                    pass
+            normalized_calls.append(
+                {
+                    "id": call.get("id"),
+                    "type": "function",
+                    "function": function,
+                }
+            )
+        normalized["tool_calls"] = normalized_calls
+    return normalized
 
 
 def _matches_module_prefix(name: str, prefixes: tuple[str, ...]) -> bool:
