@@ -261,7 +261,7 @@ def _build_command(
     config = benchmark.config
     if benchmark.kind == "agentdojo":
         return build_agentdojo_command(
-            model="openai-compatible",
+            model="VLLM_PARSED",
             model_id=profile.name,
             suite=None,
             attack=config.get("attack"),
@@ -303,8 +303,7 @@ def _run_benchmark(
     if benchmark.kind == "agentdojo":
         env.update(
             {
-                "OPENAI_COMPATIBLE_BASE_URL": base_url,
-                "OPENAI_COMPATIBLE_API_KEY": "EMPTY",
+                "LOCAL_LLM_PORT": str(port),
             }
         )
         suites = tuple(str(item) for item in config.get("suites", []))
@@ -312,7 +311,7 @@ def _run_benchmark(
             arg for suite in suites for arg in ("-s", suite)
         ) + tuple(str(arg) for arg in config.get("extra_args", []))
         return run_agentdojo(
-            model="openai-compatible",
+            model="VLLM_PARSED",
             model_id=profile.name,
             out_dir=out_dir,
             attack=config.get("attack"),

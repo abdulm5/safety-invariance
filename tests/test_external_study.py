@@ -24,7 +24,7 @@ class ExternalStudyTests(unittest.TestCase):
         self.assertEqual(plan["run_count"], 60)
         dojo = next(run for run in plan["runs"] if run["kind"] == "agentdojo")
         harm = next(run for run in plan["runs"] if run["kind"] == "agentharm")
-        self.assertIn("openai-compatible", dojo["command"])
+        self.assertIn("VLLM_PARSED", dojo["command"])
         self.assertIn("--model-id", dojo["command"])
         self.assertIn("openai-api/si/", " ".join(harm["command"]))
 
