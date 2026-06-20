@@ -101,6 +101,9 @@ class OpenAIChatBackend:
         duration_ms = (time.perf_counter() - started) * 1000.0
         offered_names = offered_tool_names(tools)
         tool_calls = parse_tool_calls(output, offered_names=offered_names)
+        max_parallel_calls = int(self.profile.model.metadata.get("max_parallel_tool_calls", 0) or 0)
+        if max_parallel_calls:
+            tool_calls = tool_calls[:max_parallel_calls]
         metadata = dict(getattr(self.model_client, "last_generation_metadata", {}))
         input_tokens = int(metadata.get("input_tokens", 0))
         output_tokens = int(metadata.get("output_tokens", 0))
@@ -138,6 +141,10 @@ class OpenAIChatBackend:
                 "output_tokens": output_tokens,
                 "tool_count": len(tools),
                 "tool_call_count": len(tool_calls),
+                "max_parallel_tool_calls": max_parallel_calls or None,
+                "context_limit": metadata.get("context_limit"),
+                "context_limit_reached": metadata.get("context_limit_reached", False),
+                "generation_budget": metadata.get("generation_budget"),
                 "seed": seed,
                 "temperature": temperature,
             }

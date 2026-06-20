@@ -504,9 +504,24 @@ class HFModelClient:
         normalized = [_normalize_chat_message(message) for message in messages]
         input_text = self._format_external_chat(normalized, tools or [])
         inputs = self.tokenizer(input_text, return_tensors="pt").to(self.model_obj.device)
+        input_tokens = int(inputs["input_ids"].shape[-1])
+        context_limit = int(getattr(self.model_obj.config, "max_position_embeddings", 0) or 0)
+        generation_budget = max_new_tokens
+        if context_limit:
+            generation_budget = min(max_new_tokens, max(0, context_limit - input_tokens))
+        if generation_budget <= 0:
+            self.last_generation_metadata = {
+                "input_tokens": input_tokens,
+                "output_tokens": 0,
+                "context_limit": context_limit,
+                "context_limit_reached": True,
+                "requested_max_new_tokens": max_new_tokens,
+                "generation_budget": 0,
+            }
+            return "I cannot continue because the model context limit was reached."
         do_sample = temperature > 0
         generation_kwargs = {
-            "max_new_tokens": max_new_tokens,
+            "max_new_tokens": generation_budget,
             "do_sample": do_sample,
             "pad_token_id": self.tokenizer.eos_token_id,
         }
@@ -515,8 +530,12 @@ class HFModelClient:
         output_ids = self.model_obj.generate(**inputs, **generation_kwargs)
         new_tokens = output_ids[0][inputs["input_ids"].shape[-1] :]
         self.last_generation_metadata = {
-            "input_tokens": int(inputs["input_ids"].shape[-1]),
+            "input_tokens": input_tokens,
             "output_tokens": int(new_tokens.shape[-1]),
+            "context_limit": context_limit or None,
+            "context_limit_reached": generation_budget < max_new_tokens,
+            "requested_max_new_tokens": max_new_tokens,
+            "generation_budget": generation_budget,
         }
         return self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 

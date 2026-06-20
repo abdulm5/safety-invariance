@@ -17,6 +17,15 @@ class FakeChatModel:
         return '<tool_call>{"name":"search_documents","arguments":{"query":"safe"}}</tool_call>'
 
 
+class FakeParallelChatModel(FakeChatModel):
+    def generate_chat(self, messages, *, tools, max_new_tokens, temperature, seed):
+        del messages, tools, max_new_tokens, temperature, seed
+        return (
+            '<tool_call>{"name":"search_documents","arguments":{"query":"first"}}</tool_call>'
+            '<tool_call>{"name":"search_documents","arguments":{"query":"second"}}</tool_call>'
+        )
+
+
 class OpenAICompatTests(unittest.TestCase):
     def test_parses_qwen_and_llama_tool_formats(self) -> None:
         qwen = parse_tool_calls(
@@ -69,6 +78,26 @@ class OpenAICompatTests(unittest.TestCase):
             self.assertEqual(choice["message"]["tool_calls"][0]["function"]["name"], "search_documents")
             self.assertEqual(response["usage"]["total_tokens"], 20)
             self.assertEqual(json.loads(telemetry.read_text())["tool_call_count"], 1)
+
+    def test_profile_can_limit_parallel_tool_calls(self) -> None:
+        profile = ModelProfile(
+            name="single-call-profile",
+            model=ModelSpec(metadata={"max_parallel_tool_calls": 1}),
+            transform=TransformSpec(),
+        )
+        backend = OpenAIChatBackend(profile, model_client=FakeParallelChatModel())
+        response = backend.chat_completion(
+            {
+                "model": profile.name,
+                "messages": [{"role": "user", "content": "Use tools"}],
+                "tools": [
+                    {"type": "function", "function": {"name": "search_documents", "parameters": {}}}
+                ],
+            }
+        )
+        calls = response["choices"][0]["message"]["tool_calls"]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(json.loads(calls[0]["function"]["arguments"]), {"query": "first"})
 
 
 if __name__ == "__main__":
