@@ -1,0 +1,76 @@
+{
+  "context_compression": {},
+  "max_new_tokens": 256,
+  "metadata": {
+    "calibration_and_evaluation_tasks_disjoint": true,
+    "collection_matrix": true,
+    "exploratory_budget_sweep": false,
+    "external_benchmarks_required_for_final_claims": true,
+    "hardware_target": "single 24GB GPU",
+    "heldout_custom_safety_task_count": 48,
+    "primary_budget_fraction": 0.2,
+    "purpose": "preregistered cross-model NF4 selective-precision replication",
+    "random_control_count_per_budget": 100,
+    "selection_artifact": "configs/generated/llama31_8b_nf4_b20_selection.json",
+    "selective_precision_phase": "heldout_evaluation",
+    "selective_precision_study": "llama31_8b_nf4_selective_b20_replication_24gb"
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": false
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "access_note": "Requires accepted Hugging Face model access and a read token.",
+      "label": "llama31_8b_nf4_selective_b20"
+    },
+    "model_id": "meta-llama/Llama-3.1-8B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "output_dir": "runs/llama31_8b_nf4_selective_b20_evaluation_24gb/llama31_8b_nf4_selective_b20_selective_random_b20_r74",
+  "run_name": "llama31_8b_nf4_selective_b20_selective_random_b20_r74",
+  "seeds": [
+    0
+  ],
+  "task_paths": [
+    "/workspace/safety-invariance/data/tasks/selective_precision_utility_heldout.json",
+    "/workspace/safety-invariance/data/tasks/agentdojo_minimal.json",
+    "/workspace/safety-invariance/data/tasks/custom_safety.json",
+    "/workspace/safety-invariance/data/tasks/chat_safety_probes.json",
+    "/workspace/safety-invariance/data/tasks/situational_awareness_probes.json",
+    "/workspace/safety-invariance/data/tasks/agentharm_lite.json",
+    "/workspace/safety-invariance/data/tasks/selective_precision_safety_heldout_expanded.json"
+  ],
+  "temperature": 0.0,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [
+      "model.layers.13",
+      "model.layers.17",
+      "model.layers.19",
+      "model.layers.22",
+      "model.layers.24",
+      "model.layers.3",
+      "model.layers.8"
+    ],
+    "load_in_4bit": true,
+    "load_in_8bit": false,
+    "metadata": {
+      "high_precision_budget_fraction": 0.21875,
+      "random_replicate": 74,
+      "random_seed": 2026,
+      "selection_strategy": "random_blocks",
+      "selective_precision_backend": "post_load_replacement",
+      "selective_precision_requested": true,
+      "selective_precision_role": "heldout_control"
+    },
+    "name": "selective_random_b20_r74",
+    "quantization": "nf4_4bit"
+  }
+}
