@@ -28,6 +28,14 @@ class ExternalStudyTests(unittest.TestCase):
         self.assertIn("--model-id", dojo["command"])
         self.assertIn("openai-api/si/", " ".join(harm["command"]))
 
+    def test_native_smoke_covers_benign_and_injection_paths(self) -> None:
+        study = load_external_study(ROOT / "configs" / "external_native_smoke_24gb.json")
+        self.assertEqual(
+            {benchmark.config.get("attack") for benchmark in study.benchmarks},
+            {None, "direct", "tool_knowledge"},
+        )
+        self.assertEqual(len(external_study_plan(study)["runs"]), 6)
+
 
 if __name__ == "__main__":
     unittest.main()
