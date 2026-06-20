@@ -1,0 +1,157 @@
+{
+  "context_compression": {},
+  "environment": {
+    "gpu": {
+      "available": true,
+      "device_count": 1,
+      "devices": [
+        {
+          "index": 0,
+          "name": "NVIDIA RTX PRO 4000 Blackwell",
+          "total_memory_gb": 23.42
+        }
+      ]
+    },
+    "packages": {
+      "accelerate": "1.14.0",
+      "bitsandbytes": "0.49.2",
+      "safety-invariance": "0.1.0",
+      "torch": "2.12.1",
+      "transformers": "5.12.1"
+    },
+    "platform": "Linux-6.8.0-124-generic-x86_64-with-glibc2.35",
+    "python": "3.11.10"
+  },
+  "max_new_tokens": 256,
+  "metadata": {
+    "calibration_and_evaluation_tasks_disjoint": true,
+    "collection_matrix": true,
+    "exploratory_budget_sweep": false,
+    "external_benchmarks_required_for_final_claims": true,
+    "hardware_target": "single 24GB GPU",
+    "heldout_custom_safety_task_count": 48,
+    "primary_budget_fraction": 0.2,
+    "purpose": "preregistered cross-quantizer INT8 selective-precision replication",
+    "random_control_count_per_budget": 100,
+    "selection_artifact": "configs/generated/qwen3b_int8_b20_selection.json",
+    "selective_precision_phase": "heldout_evaluation",
+    "selective_precision_study": "qwen25_3b_int8_selective_b20_replication_24gb"
+  },
+  "mitigation": {
+    "triggered_escalation": {
+      "enabled": false
+    }
+  },
+  "model": {
+    "cache_dir": null,
+    "device_map": "auto",
+    "metadata": {
+      "label": "qwen25_3b_selective"
+    },
+    "model_id": "Qwen/Qwen2.5-3B-Instruct",
+    "provider": "hf",
+    "revision": null,
+    "torch_dtype": "float16",
+    "trust_remote_code": false
+  },
+  "run_name": "qwen25_3b_selective_selective_random_b20_r19",
+  "runtime": {
+    "backend": "huggingface_transformers",
+    "compatibility": {
+      "restored_modules": [
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.1"
+        },
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.10"
+        },
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.11"
+        },
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.16"
+        },
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.20"
+        },
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.28"
+        },
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.3"
+        },
+        {
+          "device": "cuda:0",
+          "dtype": "torch.float16",
+          "module": "model.layers.9"
+        }
+      ],
+      "selective_precision_backend": "post_load_replacement",
+      "torch_set_submodule_shimmed": false
+    },
+    "high_precision_parameter_bytes": 1233231872,
+    "high_precision_parameter_count": 616615936,
+    "keep_modules_high_precision": [
+      "model.layers.1",
+      "model.layers.10",
+      "model.layers.11",
+      "model.layers.16",
+      "model.layers.20",
+      "model.layers.28",
+      "model.layers.3",
+      "model.layers.9"
+    ],
+    "matched_high_precision_linear_modules": 56,
+    "model_class": "Qwen2ForCausalLM",
+    "model_memory_footprint_bytes": 4013908480,
+    "peak_cuda_allocated_bytes": 4149094912,
+    "peak_cuda_reserved_bytes": 6249512960,
+    "quantization": "int8"
+  },
+  "seeds": [
+    0
+  ],
+  "task_count": 69,
+  "task_suite": "selective_precision_utility_heldout_v1+agentdojo_minimal_v1+custom_safety_v1+chat_safety_v1+situational_awareness_v1+agentharm_lite_v1+selective_precision_safety_heldout_expanded_v1",
+  "temperature": 0.0,
+  "transform": {
+    "bnb_4bit_quant_type": "nf4",
+    "keep_modules_high_precision": [
+      "model.layers.1",
+      "model.layers.10",
+      "model.layers.11",
+      "model.layers.16",
+      "model.layers.20",
+      "model.layers.28",
+      "model.layers.3",
+      "model.layers.9"
+    ],
+    "load_in_4bit": false,
+    "load_in_8bit": true,
+    "metadata": {
+      "high_precision_budget_fraction": 0.2222222222222222,
+      "random_replicate": 19,
+      "random_seed": 2026,
+      "selection_strategy": "random_blocks",
+      "selective_precision_backend": "post_load_replacement",
+      "selective_precision_requested": true,
+      "selective_precision_role": "heldout_control"
+    },
+    "name": "selective_random_b20_r19",
+    "quantization": "int8"
+  }
+}
