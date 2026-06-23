@@ -118,6 +118,8 @@ si external-collect --study configs/external_confirmation_matrix_24gb.json
 
 The collector preserves native logs and scorers, records exact commands and package versions, and resumes only completed profile/benchmark pairs. See [docs/CONFIRMATORY_PROTOCOL.md](docs/CONFIRMATORY_PROTOCOL.md) for frozen hypotheses, analysis rules, human validation, and follow-on experiments.
 
+The current literature boundary, defensible novelty claim, capability-conditioned estimands, and non-destructive extension plan are documented in [docs/RESEARCH_POSITIONING.md](docs/RESEARCH_POSITIONING.md). A dated [protocol amendment](docs/PROTOCOL_AMENDMENT_2026-06-21.md) transparently corrects the two-suite AgentDojo scope and the missing numeric equivalence margin without changing the frozen matrix or invalidating collected runs.
+
 ## Scope
 
 See [docs/DATA_COLLECTION.md](docs/DATA_COLLECTION.md) for the full data-collection workflow. The legacy bitsandbytes skip-module backend remains available by explicit transform metadata, but the verified post-load replacement backend is the default for NF4.

@@ -36,6 +36,21 @@ class ExternalStudyTests(unittest.TestCase):
         )
         self.assertEqual(len(external_study_plan(study)["runs"]), 6)
 
+    def test_remaining_suites_extension_inherits_frozen_profiles(self) -> None:
+        study = load_external_study(
+            ROOT / "configs" / "external_agentdojo_remaining_suites_extension_48gb.json"
+        )
+        frozen = load_external_study(STUDY_PATH)
+        self.assertEqual(study.profiles, frozen.profiles)
+        self.assertEqual(len(study.benchmarks), 3)
+        self.assertEqual(len(external_study_plan(study)["runs"]), 36)
+        self.assertEqual(
+            {suite for benchmark in study.benchmarks for suite in benchmark.config["suites"]},
+            {"travel", "slack"},
+        )
+        self.assertEqual(study.metadata["agentdojo_revision"], frozen.metadata["agentdojo_revision"])
+        self.assertEqual(study.metadata["protocol_status"], "prospective_extension_2026_06_21")
+
 
 if __name__ == "__main__":
     unittest.main()

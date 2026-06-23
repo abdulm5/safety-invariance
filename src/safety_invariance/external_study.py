@@ -41,7 +41,7 @@ class ExternalStudy:
 
 
 def load_external_study(path: str | Path) -> ExternalStudy:
-    data = load_structured_file(Path(path))
+    data = _load_external_study_data(Path(path), seen=set())
     return ExternalStudy(
         name=str(data["name"]),
         output_root=str(data.get("output_root", f"runs/{data['name']}")),
@@ -54,6 +54,27 @@ def load_external_study(path: str | Path) -> ExternalStudy:
         port=int(data.get("server", {}).get("port", 8765)),
         metadata=dict(data.get("metadata", {})),
     )
+
+
+def _load_external_study_data(path: Path, *, seen: set[Path]) -> dict[str, Any]:
+    resolved = path.resolve()
+    if resolved in seen:
+        chain = " -> ".join(str(item) for item in (*seen, resolved))
+        raise ValueError(f"External study inheritance cycle: {chain}")
+    data = dict(load_structured_file(path))
+    parent = data.pop("extends", None)
+    if not parent:
+        return data
+    parent_path = Path(str(parent))
+    if not parent_path.is_absolute():
+        parent_path = path.parent / parent_path
+    base = _load_external_study_data(parent_path, seen=seen | {resolved})
+    merged = dict(base)
+    merged.update(data)
+    for key in ("server", "metadata"):
+        if key in base or key in data:
+            merged[key] = {**dict(base.get(key, {})), **dict(data.get(key, {}))}
+    return merged
 
 
 def validate_external_study(study: ExternalStudy, *, check_runtime: bool = False) -> dict[str, list[str]]:

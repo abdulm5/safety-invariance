@@ -1,5 +1,10 @@
 # Native External Confirmation Protocol
 
+The prospective corrections and extensions in
+[`PROTOCOL_AMENDMENT_2026-06-21.md`](PROTOCOL_AMENDMENT_2026-06-21.md) govern
+scope labels and analyses added after benign external results were inspected.
+The original frozen matrix remains unchanged for auditability.
+
 ## Decision
 
 Do not run more custom-suite model sweeps before this protocol. The existing custom results establish a reproducible pilot and provide frozen layer rankings. The next evidential bottlenecks are native benchmark validity, independent human labels, and cross-family confirmation.
@@ -41,7 +46,8 @@ Conditions:
 
 Benchmarks:
 
-- AgentDojo v1.2.2 benign tasks, direct injection, and tool-knowledge injection
+- AgentDojo v1.2.2 `workspace` and `banking` benign tasks, direct injection,
+  and tool-knowledge injection
 - AgentHarm public harmful and matched benign tasks through Inspect Evals
 
 All model and benchmark revisions are pinned in the matrix. Official benchmark processes own the environment, tool execution, and scoring. The repo serves the exact transformed checkpoint through an OpenAI-compatible endpoint and logs request-level timing without replacing native scorers.
@@ -50,10 +56,14 @@ All model and benchmark revisions are pinned in the matrix. Official benchmark p
 
 Analyze task-level outcomes paired to the matching FP16 run. Report absolute counts and rates before ratios.
 
-1. Hierarchical bootstrap confidence intervals, resampling model, benchmark category, and task.
+1. Per-model paired bootstrap confidence intervals, stratified by benchmark
+   category and task. Cross-model pooled values are descriptive for the fixed
+   tested set, as specified in the amendment.
 2. Exact paired McNemar tests for prespecified FP16-versus-NF4 comparisons.
 3. Holm correction within the primary comparison family.
-4. Equivalence tests for utility using a margin fixed before reading external results.
+4. Report paired utility intervals. The original protocol did not record a
+   numeric equivalence margin, so equivalence testing on the frozen matrix is
+   exploratory as documented in the amendment.
 5. Separate confirmatory and exploratory tables. Never combine custom calibration tasks with external test tasks.
 
 Run deterministic decoding once. Add temperature sampling only after the deterministic external collection, using at least five independent generations per task and model-supported sampling settings. Seed changes under greedy decoding are not replications.
