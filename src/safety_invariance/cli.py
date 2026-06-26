@@ -20,6 +20,7 @@ from safety_invariance.external_study import (
 from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
 from safety_invariance.margin_calibration import collect_action_margins
 from safety_invariance.mechanistic import analyze_mechanistic_divergence
+from safety_invariance.native_report import write_native_external_report
 from safety_invariance.openai_compat import load_model_profile, serve_profile
 from safety_invariance.preflight import run_preflight
 from safety_invariance.reporting import write_markdown_report
@@ -262,6 +263,21 @@ def build_parser() -> argparse.ArgumentParser:
     external_collect_parser.add_argument("--dry-run", action="store_true")
     external_collect_parser.add_argument("--no-skip-existing", action="store_true")
     external_collect_parser.set_defaults(func=cmd_external_collect)
+
+    external_report_parser = subparsers.add_parser(
+        "external-report",
+        help="Generate aggregate native AgentDojo/AgentHarm report from completed external runs",
+    )
+    external_report_parser.add_argument(
+        "--root",
+        action="append",
+        required=True,
+        help="External study output root; pass multiple times to merge roots",
+    )
+    external_report_parser.add_argument("--out", required=True, help="Output Markdown path")
+    external_report_parser.add_argument("--json-out", help="Optional JSON artifact path")
+    external_report_parser.add_argument("--baseline-profile", default="qwen25_3b_fp16")
+    external_report_parser.set_defaults(func=cmd_external_report)
     return parser
 
 
@@ -587,6 +603,17 @@ def cmd_external_collect(args: argparse.Namespace) -> int:
         benchmark_names=set(args.benchmark) or None,
     )
     print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_external_report(args: argparse.Namespace) -> int:
+    path = write_native_external_report(
+        args.root,
+        args.out,
+        baseline_profile=args.baseline_profile,
+        json_out=args.json_out,
+    )
+    print(str(path))
     return 0
 
 
