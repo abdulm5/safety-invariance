@@ -28,9 +28,14 @@ def write_native_external_report(
     out: str | Path,
     *,
     baseline_profile: str = "qwen25_3b_fp16",
+    candidate_profiles: list[str] | tuple[str, ...] = (),
     json_out: str | Path | None = None,
 ) -> Path:
-    report = build_native_external_report(root, baseline_profile=baseline_profile)
+    report = build_native_external_report(
+        root,
+        baseline_profile=baseline_profile,
+        candidate_profiles=candidate_profiles,
+    )
     out_path = Path(out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(render_native_external_report(report), encoding="utf-8")
@@ -48,6 +53,7 @@ def build_native_external_report(
     root: str | Path | list[str | Path] | tuple[str | Path, ...],
     *,
     baseline_profile: str = "qwen25_3b_fp16",
+    candidate_profiles: list[str] | tuple[str, ...] = (),
 ) -> NativeReport:
     root_paths = _normalize_roots(root)
     profile_dirs: dict[str, list[Path]] = {}
@@ -60,6 +66,16 @@ def build_native_external_report(
     }
     if baseline_profile not in profiles:
         raise ValueError(f"baseline profile not found: {baseline_profile}")
+    if candidate_profiles:
+        selected = {baseline_profile, *candidate_profiles}
+        missing = sorted(selected - set(profiles))
+        if missing:
+            raise ValueError("profile(s) not found: " + ", ".join(missing))
+        profiles = {
+            name: data
+            for name, data in profiles.items()
+            if name in selected
+        }
     comparisons = [
         _compare_profiles(baseline_profile, profiles[baseline_profile], name, data)
         for name, data in profiles.items()
@@ -208,7 +224,7 @@ def render_native_external_report(report: NativeReport) -> str:
                 "",
                 "## Mitigation Versus Full NF4",
                 "",
-                "|profile|strategy|direct security Δ|tool security Δ|harmful score Δ|benign utility Δ|AgentHarm benign Δ|",
+                "|profile|strategy|TS direct sec Δ|TS tool sec Δ|harmful score Δ|TS benign utility Δ|AgentHarm benign Δ|",
                 "|---|---|---:|---:|---:|---:|---:|",
             ]
         )

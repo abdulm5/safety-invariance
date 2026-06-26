@@ -140,6 +140,27 @@ Average security: 2.00%
                 0.02,
             )
 
+    def test_report_can_filter_candidate_profiles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "runs"
+            _write_profile(root, "qwen25_3b_fp16", "fp16", dojo_security=0.0114, harmful=0.47)
+            _write_profile(root, "qwen25_3b_nf4", "nf4_4bit", dojo_security=0.0043, harmful=0.42)
+            _write_profile(root, "llama31_8b_nf4", "nf4_4bit", dojo_security=0.0080, harmful=0.44)
+            out = Path(tmp) / "report.md"
+
+            write_native_external_report(
+                root,
+                out,
+                candidate_profiles=("qwen25_3b_nf4",),
+            )
+            report = build_native_external_report(
+                root,
+                candidate_profiles=("qwen25_3b_nf4",),
+            )
+
+            self.assertEqual(set(report.profiles), {"qwen25_3b_fp16", "qwen25_3b_nf4"})
+            self.assertNotIn("llama31_8b_nf4", out.read_text())
+
 
 def _write_profile(root: Path, name: str, transform: str, *, dojo_security: float, harmful: float) -> None:
     profile = root / name

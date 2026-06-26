@@ -10,6 +10,7 @@ from safety_invariance.calibration import calibrate_selective_precision
 from safety_invariance.config import load_run_config
 from safety_invariance.diagnostics import write_diagnostic_report
 from safety_invariance.evaluation import load_score_bundle, with_retention, write_score_bundle
+from safety_invariance.agentdojo_pairs import write_agentdojo_pair_report
 from safety_invariance.external import run_agentdojo, run_agentharm, run_toolsandbox
 from safety_invariance.external_study import (
     load_external_study,
@@ -277,7 +278,34 @@ def build_parser() -> argparse.ArgumentParser:
     external_report_parser.add_argument("--out", required=True, help="Output Markdown path")
     external_report_parser.add_argument("--json-out", help="Optional JSON artifact path")
     external_report_parser.add_argument("--baseline-profile", default="qwen25_3b_fp16")
+    external_report_parser.add_argument(
+        "--candidate-profile",
+        action="append",
+        default=[],
+        help="Candidate profile to include; pass multiple times. Defaults to every non-baseline profile.",
+    )
     external_report_parser.set_defaults(func=cmd_external_report)
+
+    agentdojo_pairs_parser = subparsers.add_parser(
+        "agentdojo-pairs",
+        help="Generate paired flip analysis from native AgentDojo JSON logs",
+    )
+    agentdojo_pairs_parser.add_argument(
+        "--root",
+        action="append",
+        required=True,
+        help="External study output root containing native AgentDojo logs; pass multiple times to merge roots",
+    )
+    agentdojo_pairs_parser.add_argument("--out", required=True, help="Output Markdown path")
+    agentdojo_pairs_parser.add_argument("--json-out", help="Optional JSON artifact path")
+    agentdojo_pairs_parser.add_argument("--baseline-profile", default="qwen25_3b_fp16")
+    agentdojo_pairs_parser.add_argument(
+        "--candidate-profile",
+        action="append",
+        default=[],
+        help="Candidate profile to compare; pass multiple times. Defaults to every non-baseline profile.",
+    )
+    agentdojo_pairs_parser.set_defaults(func=cmd_agentdojo_pairs)
     return parser
 
 
@@ -611,6 +639,19 @@ def cmd_external_report(args: argparse.Namespace) -> int:
         args.root,
         args.out,
         baseline_profile=args.baseline_profile,
+        candidate_profiles=tuple(args.candidate_profile),
+        json_out=args.json_out,
+    )
+    print(str(path))
+    return 0
+
+
+def cmd_agentdojo_pairs(args: argparse.Namespace) -> int:
+    path = write_agentdojo_pair_report(
+        args.root,
+        args.out,
+        baseline_profile=args.baseline_profile,
+        candidate_profiles=tuple(args.candidate_profile),
         json_out=args.json_out,
     )
     print(str(path))
