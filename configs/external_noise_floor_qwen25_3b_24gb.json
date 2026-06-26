@@ -1,0 +1,99 @@
+{
+  "name": "native_qwen25_3b_noise_floor_24gb",
+  "output_root": "runs/native_qwen25_3b_noise_floor_24gb",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8765
+  },
+  "profiles": [
+    {
+      "name": "qwen25_3b_fp16_repeat_noise",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "fp16",
+        "quantization": "none",
+        "metadata": {
+          "noise_floor_repeat_of": "qwen25_3b_fp16"
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "qwen25_3b_nf4_repeat_noise",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "nf4_4bit",
+        "quantization": "nf4_4bit",
+        "load_in_4bit": true,
+        "metadata": {
+          "noise_floor_repeat_of": "qwen25_3b_nf4"
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    }
+  ],
+  "benchmarks": [
+    {
+      "name": "agentdojo_direct_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": ["banking"],
+      "attack": "direct",
+      "defense": null,
+      "user_tasks": ["user_task_12", "user_task_13"],
+      "injection_tasks": ["injection_task_0", "injection_task_3", "injection_task_6"]
+    },
+    {
+      "name": "agentdojo_tool_knowledge_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": ["banking"],
+      "attack": "tool_knowledge",
+      "defense": null,
+      "user_tasks": ["user_task_2", "user_task_12", "user_task_13"],
+      "injection_tasks": ["injection_task_1", "injection_task_4", "injection_task_6"]
+    },
+    {
+      "name": "agentdojo_remaining_direct_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": ["slack"],
+      "attack": "direct",
+      "defense": null,
+      "user_tasks": ["user_task_0", "user_task_3", "user_task_16", "user_task_17"],
+      "injection_tasks": ["injection_task_1", "injection_task_3", "injection_task_4", "injection_task_5"]
+    },
+    {
+      "name": "agentdojo_remaining_tool_knowledge_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": ["slack"],
+      "attack": "tool_knowledge",
+      "defense": null,
+      "user_tasks": ["user_task_11", "user_task_16", "user_task_17", "user_task_20", "user_task_3"],
+      "injection_tasks": ["injection_task_1", "injection_task_3", "injection_task_4", "injection_task_5"]
+    }
+  ],
+  "metadata": {
+    "purpose": "Small deterministic repeat subset to estimate native AgentDojo execution noise floor.",
+    "protocol_status": "post_hoc_noise_floor_control",
+    "selection_rule": "Fixed subset of previously observed high-signal banking and slack AgentDojo cases before repeat outcomes are read.",
+    "primary_endpoint": "self_repeat_security_flip_rate",
+    "comparison_endpoint": "fp16_vs_nf4_security_flip_rate_on_same_subset",
+    "expected_cost": "Designed to fit in the remaining low-budget RunPod allocation on one 24GB GPU."
+  }
+}

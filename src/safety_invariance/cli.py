@@ -22,6 +22,7 @@ from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_
 from safety_invariance.margin_calibration import collect_action_margins
 from safety_invariance.mechanistic import analyze_mechanistic_divergence
 from safety_invariance.native_report import write_native_external_report
+from safety_invariance.noise_floor import write_agentdojo_noise_floor_report
 from safety_invariance.openai_compat import load_model_profile, serve_profile
 from safety_invariance.preflight import run_preflight
 from safety_invariance.reporting import write_markdown_report
@@ -306,6 +307,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Candidate profile to compare; pass multiple times. Defaults to every non-baseline profile.",
     )
     agentdojo_pairs_parser.set_defaults(func=cmd_agentdojo_pairs)
+
+    noise_floor_parser = subparsers.add_parser(
+        "agentdojo-noise-floor",
+        help="Compare deterministic AgentDojo self-repeats against FP16-vs-NF4 flips on the same subset",
+    )
+    noise_floor_parser.add_argument(
+        "--root",
+        action="append",
+        required=True,
+        help="Original external study root; pass multiple times to merge roots",
+    )
+    noise_floor_parser.add_argument("--repeat-root", required=True, help="Repeat study output root")
+    noise_floor_parser.add_argument("--out", required=True, help="Output Markdown path")
+    noise_floor_parser.add_argument("--json-out", help="Optional JSON artifact path")
+    noise_floor_parser.add_argument("--fp16-profile", default="qwen25_3b_fp16")
+    noise_floor_parser.add_argument("--nf4-profile", default="qwen25_3b_nf4")
+    noise_floor_parser.add_argument("--fp16-repeat-profile", default="qwen25_3b_fp16_repeat_noise")
+    noise_floor_parser.add_argument("--nf4-repeat-profile", default="qwen25_3b_nf4_repeat_noise")
+    noise_floor_parser.set_defaults(func=cmd_agentdojo_noise_floor)
     return parser
 
 
@@ -652,6 +672,21 @@ def cmd_agentdojo_pairs(args: argparse.Namespace) -> int:
         args.out,
         baseline_profile=args.baseline_profile,
         candidate_profiles=tuple(args.candidate_profile),
+        json_out=args.json_out,
+    )
+    print(str(path))
+    return 0
+
+
+def cmd_agentdojo_noise_floor(args: argparse.Namespace) -> int:
+    path = write_agentdojo_noise_floor_report(
+        args.root,
+        args.repeat_root,
+        args.out,
+        fp16_profile=args.fp16_profile,
+        nf4_profile=args.nf4_profile,
+        fp16_repeat_profile=args.fp16_repeat_profile,
+        nf4_repeat_profile=args.nf4_repeat_profile,
         json_out=args.json_out,
     )
     print(str(path))
