@@ -10,6 +10,7 @@ from safety_invariance.calibration import calibrate_selective_precision
 from safety_invariance.config import load_run_config
 from safety_invariance.diagnostics import write_diagnostic_report
 from safety_invariance.evaluation import load_score_bundle, with_retention, write_score_bundle
+from safety_invariance.agentdojo_pairs import write_agentdojo_pair_report
 from safety_invariance.external import run_agentdojo, run_agentharm, run_toolsandbox
 from safety_invariance.external_study import (
     load_external_study,
@@ -20,6 +21,8 @@ from safety_invariance.external_study import (
 from safety_invariance.matrix import expand_matrix, load_collection_matrix, run_collection_matrix, validate_matrix
 from safety_invariance.margin_calibration import collect_action_margins
 from safety_invariance.mechanistic import analyze_mechanistic_divergence
+from safety_invariance.native_report import write_native_external_report
+from safety_invariance.noise_floor import write_agentdojo_noise_floor_report
 from safety_invariance.openai_compat import load_model_profile, serve_profile
 from safety_invariance.preflight import run_preflight
 from safety_invariance.reporting import write_markdown_report
@@ -262,6 +265,67 @@ def build_parser() -> argparse.ArgumentParser:
     external_collect_parser.add_argument("--dry-run", action="store_true")
     external_collect_parser.add_argument("--no-skip-existing", action="store_true")
     external_collect_parser.set_defaults(func=cmd_external_collect)
+
+    external_report_parser = subparsers.add_parser(
+        "external-report",
+        help="Generate aggregate native AgentDojo/AgentHarm report from completed external runs",
+    )
+    external_report_parser.add_argument(
+        "--root",
+        action="append",
+        required=True,
+        help="External study output root; pass multiple times to merge roots",
+    )
+    external_report_parser.add_argument("--out", required=True, help="Output Markdown path")
+    external_report_parser.add_argument("--json-out", help="Optional JSON artifact path")
+    external_report_parser.add_argument("--baseline-profile", default="qwen25_3b_fp16")
+    external_report_parser.add_argument(
+        "--candidate-profile",
+        action="append",
+        default=[],
+        help="Candidate profile to include; pass multiple times. Defaults to every non-baseline profile.",
+    )
+    external_report_parser.set_defaults(func=cmd_external_report)
+
+    agentdojo_pairs_parser = subparsers.add_parser(
+        "agentdojo-pairs",
+        help="Generate paired flip analysis from native AgentDojo JSON logs",
+    )
+    agentdojo_pairs_parser.add_argument(
+        "--root",
+        action="append",
+        required=True,
+        help="External study output root containing native AgentDojo logs; pass multiple times to merge roots",
+    )
+    agentdojo_pairs_parser.add_argument("--out", required=True, help="Output Markdown path")
+    agentdojo_pairs_parser.add_argument("--json-out", help="Optional JSON artifact path")
+    agentdojo_pairs_parser.add_argument("--baseline-profile", default="qwen25_3b_fp16")
+    agentdojo_pairs_parser.add_argument(
+        "--candidate-profile",
+        action="append",
+        default=[],
+        help="Candidate profile to compare; pass multiple times. Defaults to every non-baseline profile.",
+    )
+    agentdojo_pairs_parser.set_defaults(func=cmd_agentdojo_pairs)
+
+    noise_floor_parser = subparsers.add_parser(
+        "agentdojo-noise-floor",
+        help="Compare deterministic AgentDojo self-repeats against FP16-vs-NF4 flips on the same subset",
+    )
+    noise_floor_parser.add_argument(
+        "--root",
+        action="append",
+        required=True,
+        help="Original external study root; pass multiple times to merge roots",
+    )
+    noise_floor_parser.add_argument("--repeat-root", required=True, help="Repeat study output root")
+    noise_floor_parser.add_argument("--out", required=True, help="Output Markdown path")
+    noise_floor_parser.add_argument("--json-out", help="Optional JSON artifact path")
+    noise_floor_parser.add_argument("--fp16-profile", default="qwen25_3b_fp16")
+    noise_floor_parser.add_argument("--nf4-profile", default="qwen25_3b_nf4")
+    noise_floor_parser.add_argument("--fp16-repeat-profile", default="qwen25_3b_fp16_repeat_noise")
+    noise_floor_parser.add_argument("--nf4-repeat-profile", default="qwen25_3b_nf4_repeat_noise")
+    noise_floor_parser.set_defaults(func=cmd_agentdojo_noise_floor)
     return parser
 
 
@@ -587,6 +651,45 @@ def cmd_external_collect(args: argparse.Namespace) -> int:
         benchmark_names=set(args.benchmark) or None,
     )
     print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def cmd_external_report(args: argparse.Namespace) -> int:
+    path = write_native_external_report(
+        args.root,
+        args.out,
+        baseline_profile=args.baseline_profile,
+        candidate_profiles=tuple(args.candidate_profile),
+        json_out=args.json_out,
+    )
+    print(str(path))
+    return 0
+
+
+def cmd_agentdojo_pairs(args: argparse.Namespace) -> int:
+    path = write_agentdojo_pair_report(
+        args.root,
+        args.out,
+        baseline_profile=args.baseline_profile,
+        candidate_profiles=tuple(args.candidate_profile),
+        json_out=args.json_out,
+    )
+    print(str(path))
+    return 0
+
+
+def cmd_agentdojo_noise_floor(args: argparse.Namespace) -> int:
+    path = write_agentdojo_noise_floor_report(
+        args.root,
+        args.repeat_root,
+        args.out,
+        fp16_profile=args.fp16_profile,
+        nf4_profile=args.nf4_profile,
+        fp16_repeat_profile=args.fp16_repeat_profile,
+        nf4_repeat_profile=args.nf4_repeat_profile,
+        json_out=args.json_out,
+    )
+    print(str(path))
     return 0
 
 

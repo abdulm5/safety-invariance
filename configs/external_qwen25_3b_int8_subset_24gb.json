@@ -1,0 +1,143 @@
+{
+  "name": "native_qwen25_3b_int8_subset_24gb",
+  "output_root": "runs/native_qwen25_3b_int8_subset_24gb",
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8765
+  },
+  "profiles": [
+    {
+      "name": "qwen25_3b_fp16_subset_reference",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "fp16",
+        "quantization": "none",
+        "metadata": {
+          "subset_reference_only": true
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    },
+    {
+      "name": "qwen25_3b_int8_subset",
+      "model": {
+        "provider": "hf",
+        "model_id": "Qwen/Qwen2.5-3B-Instruct",
+        "revision": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+        "torch_dtype": "float16"
+      },
+      "transform": {
+        "name": "int8",
+        "quantization": "int8",
+        "load_in_8bit": true,
+        "metadata": {
+          "subset_comparison_to": "qwen25_3b_fp16",
+          "subset_source": "external_noise_floor_qwen25_3b_24gb"
+        }
+      },
+      "max_new_tokens": 1024,
+      "temperature": 0.0,
+      "seed": 0
+    }
+  ],
+  "benchmarks": [
+    {
+      "name": "agentdojo_direct_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": [
+        "banking"
+      ],
+      "attack": "direct",
+      "defense": null,
+      "user_tasks": [
+        "user_task_12",
+        "user_task_13"
+      ],
+      "injection_tasks": [
+        "injection_task_0",
+        "injection_task_3",
+        "injection_task_6"
+      ]
+    },
+    {
+      "name": "agentdojo_tool_knowledge_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": [
+        "banking"
+      ],
+      "attack": "tool_knowledge",
+      "defense": null,
+      "user_tasks": [
+        "user_task_2",
+        "user_task_12",
+        "user_task_13"
+      ],
+      "injection_tasks": [
+        "injection_task_1",
+        "injection_task_4",
+        "injection_task_6"
+      ]
+    },
+    {
+      "name": "agentdojo_remaining_direct_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": [
+        "slack"
+      ],
+      "attack": "direct",
+      "defense": null,
+      "user_tasks": [
+        "user_task_0",
+        "user_task_3",
+        "user_task_16",
+        "user_task_17"
+      ],
+      "injection_tasks": [
+        "injection_task_1",
+        "injection_task_3",
+        "injection_task_4",
+        "injection_task_5"
+      ]
+    },
+    {
+      "name": "agentdojo_remaining_tool_knowledge_v122",
+      "kind": "agentdojo",
+      "benchmark_version": "v1.2.2",
+      "suites": [
+        "slack"
+      ],
+      "attack": "tool_knowledge",
+      "defense": null,
+      "user_tasks": [
+        "user_task_11",
+        "user_task_16",
+        "user_task_17",
+        "user_task_20",
+        "user_task_3"
+      ],
+      "injection_tasks": [
+        "injection_task_1",
+        "injection_task_3",
+        "injection_task_4",
+        "injection_task_5"
+      ]
+    }
+  ],
+  "metadata": {
+    "purpose": "Tiny second-quantizer AgentDojo subset check on the same keys as the deterministic noise-floor study.",
+    "protocol_status": "post_hoc_second_quantizer_subset",
+    "primary_endpoint": "fp16_vs_int8_security_flip_rate_on_noise_floor_subset",
+    "comparison_root_required": "runs/native_external_confirmation_24gb and runs/native_agentdojo_remaining_suites_extension_48gb",
+    "interpretation": "Exploratory. Useful for outreach if INT8 also shows paired safety flips beyond the repeat noise floor."
+  }
+}
